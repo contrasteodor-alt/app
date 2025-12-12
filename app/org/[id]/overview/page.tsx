@@ -6,6 +6,20 @@ import { Button } from '@/components/ui/button';
 import { getLinesForOrg, getOrganizationById } from '@/lib/mock-data';
 
 type OrgOverviewPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function OrgOverviewPage({ params }: OrgOverviewPageProps) {
+  const { id } = await params;
+
+  const org = getOrganizationById(id);
+  const lines = getLinesForOrg(id);
+
+  if (!org) {
+    return notFound();
+  }
+
+type OrgOverviewPageProps = {
 	params: { id: string };
 };
 
