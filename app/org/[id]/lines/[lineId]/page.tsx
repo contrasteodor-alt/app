@@ -6,17 +6,19 @@ import { Separator } from '@/components/ui/separator';
 import { getLineById, getOrganizationById } from '@/lib/mock-data';
 
 type LinePageProps = {
-	params: { id: string; lineId: string };
+	params: Promise<{ id: string; lineId: string }>;
 };
 
-export default function LinePage({ params }: LinePageProps) {
-	const org = getOrganizationById(params.id);
-	const line = getLineById(params.lineId);
+export default async function Page({ params }: LinePageProps) {
+  const { id, lineId } = await params;
 
-	if (!org || !line || line.orgId !== org.id) {
-		return notFound();
-	}
-
+  return (
+    <main className="p-6">
+      <h1 className="text-xl font-bold">Line {lineId}</h1>
+      <p>Org: {id}</p>
+    </main>
+  );
+}
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
