@@ -18,9 +18,14 @@ export type Line = {
 // Mock data
 // --------------------
 
+// Keep the canonical export name:
 export const organizations: Organization[] = [
   { id: "org-1", name: "Demo Factory" },
 ];
+
+// Some parts of the app expect `mockOrganizations`.
+// Provide an alias so you don't have to refactor components.
+export const mockOrganizations = organizations;
 
 export const lines: Line[] = [
   {
@@ -42,8 +47,12 @@ export const lines: Line[] = [
 ];
 
 // --------------------
-// Selectors
+// Selectors / helpers
 // --------------------
+
+export function getOrganizations() {
+  return organizations;
+}
 
 export function getOrganizationById(id: string) {
   return organizations.find((o) => o.id === id);
