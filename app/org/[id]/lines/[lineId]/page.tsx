@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { getLineById, getOrganizationById } from '@/lib/mock-data';
 
 type LinePageProps = {
-	params: Promise<{ id: string; lineId: string }>;
+  params: Promise<{ id: string; lineId: string }>;
 };
 
 export default async function LinePage({ params }: LinePageProps) {
