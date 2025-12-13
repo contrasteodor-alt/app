@@ -13,7 +13,7 @@ export default async function LinePage({ params }: LinePageProps) {
   const { id, lineId } = await params;
 
   const org = getOrganizationById(id);
-  const line = getLineById(id, lineId); // adjust to your mock-data signature
+  const line = getLineById(lineId); // adjust to your mock-data signature
 
   if (!org || !line) {
     notFound();
