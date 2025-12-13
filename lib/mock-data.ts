@@ -6,7 +6,6 @@ export type Organization = {
   description?: string;
 };
 
-
 export type Line = {
   id: string;
   orgId: string;
@@ -17,16 +16,18 @@ export type Line = {
 };
 
 // --------------------
-// Mock data
+// Mock data (SINGLE SOURCE OF TRUTH)
 // --------------------
 
-// Keep the canonical export name:
 export const organizations: Organization[] = [
-  { id: "org-1", name: "Demo Factory" },
+  {
+    id: "org-1",
+    name: "Demo Factory",
+    description: "Lean KPI demo workspace",
+  },
 ];
 
-// Some parts of the app expect `mockOrganizations`.
-// Provide an alias so you don't have to refactor components.
+// Alias expected by some components
 export const mockOrganizations = organizations;
 
 export const lines: Line[] = [
@@ -48,13 +49,8 @@ export const lines: Line[] = [
   },
 ];
 
-export const organizations: Organization[] = [
-  { id: "org-1", name: "Demo Factory", description: "Lean KPI demo workspace" },
-];
-
-
 // --------------------
-// Selectors / helpers
+// Selectors
 // --------------------
 
 export function getOrganizations() {
