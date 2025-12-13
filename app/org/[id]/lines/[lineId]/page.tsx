@@ -9,7 +9,7 @@ type LinePageProps = {
 	params: Promise<{ id: string; lineId: string }>;
 };
 
-export default async function Page({ params }: LinePageProps) {
+export default async function LinePage({ params }: LinePageProps) {
   const { id, lineId } = await params;
 
   return (
