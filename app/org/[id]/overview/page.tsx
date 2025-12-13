@@ -15,21 +15,11 @@ export default async function OrgOverviewPage({ params }: OrgOverviewPageProps) 
   const org = getOrganizationById(id);
   const lines = getLinesForOrg(id);
 
-  if (!org) {
-    return notFound();
-  }
+  if (!org) return notFound();
 
-type OrgOverviewPageProps = {
-	params: { id: string };
-};
+  // ...return JSX
 
-export default function OrgOverviewPage({ params }: OrgOverviewPageProps) {
-	const org = getOrganizationById(params.id);
-	const lines = getLinesForOrg(params.id);
 
-	if (!org) {
-		return notFound();
-	}
 
 	return (
 		<div className="space-y-6">
