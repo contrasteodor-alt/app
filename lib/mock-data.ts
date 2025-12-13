@@ -4,7 +4,9 @@ export type Organization = {
   id: string;
   name: string;
   description?: string;
+  location?: string;
 };
+
 
 export type Line = {
   id: string;
@@ -24,6 +26,7 @@ export const organizations: Organization[] = [
     id: "org-1",
     name: "Demo Factory",
     description: "Lean KPI demo workspace",
+    location: "Arad, RO",
   },
 ];
 
