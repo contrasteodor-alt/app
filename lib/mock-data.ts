@@ -3,7 +3,9 @@
 export type Organization = {
   id: string;
   name: string;
+  description?: string;
 };
+
 
 export type Line = {
   id: string;
@@ -45,6 +47,11 @@ export const lines: Line[] = [
     lastUpdate: "1 hour ago",
   },
 ];
+
+export const organizations: Organization[] = [
+  { id: "org-1", name: "Demo Factory", description: "Lean KPI demo workspace" },
+];
+
 
 // --------------------
 // Selectors / helpers
