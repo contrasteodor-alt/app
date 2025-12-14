@@ -1,22 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+
+import type { RecommendedAction } from "@/lib/engineering-demo";
+import { demoEvents, demoShift, deriveMetrics, runDeterministicFindings } from "@/lib/engineering-demo";
+
+function pct(x: number) {
+  if (!Number.isFinite(x)) return "n/a";
+  return `${Math.round(x * 1000) / 10}%`;
+}
+
+function clamp01(x: number) {
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(1, x));
+}
 
 export default function AIPage() {
-  const [prompt, setPrompt] = useState("");
-  const [answer, setAnswer] = useState<string>("");
-  const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [rawAI, setRawAI] = useState<string>("");
+  const [actions, setActions] = useState<RecommendedAction[]>([]);
+  const [error, setError] = useState<string>("");
 
-  async function askAI() {
+  const metrics = useMemo(() => deriveMetrics(demoEvents, demoShift), []);
+  const findings = useMemo(() => runDeterministicFindings(demoEvents, metrics), [metrics]);
+
+  async function runEngineeringReview() {
     setLoading(true);
-    setAnswer("");
     setError("");
+    setRawAI("");
+    setActions([]);
 
     try {
+      // We send a STRICT prompt that asks for JSON only.
+      const prompt = `
+You are a senior manufacturing engineer. Be assertive but justified.
+
+You MUST:
+- Only use the provided data (no invented KPIs, no invented events).
+- Produce a JSON array only (no markdown, no explanations outside JSON).
+- Keep it practical (what an engineer would do next shift).
+
+DATA:
+Shift Inputs: ${JSON.stringify(demoShift)}
+Derived Metrics: ${JSON.stringify(metrics)}
+Events: ${JSON.stringify(demoEvents)}
+Deterministic Findings (rules-based): ${JSON.stringify(findings)}
+
+OUTPUT JSON SCHEMA (array):
+[
+  {
+    "action": "string",
+    "category": "Machine|Method|Material|Man|Other",
+    "expectedImpact": "string",
+    "confidence": "Low|Medium|High",
+    "evidenceEventIds": ["e1","e2"]
+  }
+]
+
+Return 3 to 6 actions max. Rank most important first.
+`.trim();
+
       const r = await fetch("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,13 +72,26 @@ export default function AIPage() {
       const data = await r.json();
 
       if (!r.ok) {
-        setError(data?.error || "Request failed");
+        setError(data?.error || "AI request failed");
         return;
       }
 
-      setAnswer(data?.text || "(empty response)");
+      const text = data?.text || "";
+      setRawAI(text);
+
+      // Try to parse JSON actions:
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          setActions(parsed);
+        } else {
+          setError("AI returned non-array JSON. Showing raw output below.");
+        }
+      } catch {
+        setError("AI returned non-JSON output. Showing raw output below.");
+      }
     } catch (e: any) {
-      setError(e?.message || "Network error");
+      setError(e?.message || "Network/server error");
     } finally {
       setLoading(false);
     }
@@ -41,62 +100,196 @@ export default function AIPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">AI assistant</h1>
-        <p className="text-muted-foreground">Ask questions about your operations data.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">Automated Engineering Review</h1>
+        <p className="text-muted-foreground">
+          Deterministic metrics + event log + AI action recommendations. (Engineering-first view)
+        </p>
       </div>
 
+      {/* Controls */}
       <Card>
         <CardHeader>
-          <CardTitle>Prompt</CardTitle>
+          <CardTitle>Run standard analysis</CardTitle>
           <CardDescription>
-            Runs server-side (OPENAI_API_KEY stays private). Try “Create a PDCA for high scrap on Line 1”.
+            Uses a fixed dataset (demo factory) and a strict JSON output contract for repeatability.
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button onClick={runEngineeringReview} disabled={loading}>
+            {loading ? "Running..." : "Run engineering analysis"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setError("");
+              setRawAI("");
+              setActions([]);
+            }}
+            disabled={loading}
+          >
+            Clear results
+          </Button>
+          {error ? <p className="text-sm text-red-600 whitespace-pre-wrap w-full mt-2">{error}</p> : null}
+        </CardContent>
+      </Card>
 
-        <CardContent className="space-y-3">
-          <Textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="e.g. Summarize downtime by line for the last 24h."
-            rows={5}
-          />
+      {/* Event Log */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Event log</CardTitle>
+          <CardDescription>Structured production events (what engineers actually analyze).</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left">
+              <tr className="border-b">
+                <th className="py-2 pr-4">Time</th>
+                <th className="py-2 pr-4">Type</th>
+                <th className="py-2 pr-4">Category</th>
+                <th className="py-2 pr-4">Duration</th>
+                <th className="py-2 pr-4">Comment</th>
+                <th className="py-2">ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {demoEvents.map((e) => (
+                <tr key={e.id} className="border-b">
+                  <td className="py-2 pr-4">{e.timestamp}</td>
+                  <td className="py-2 pr-4">{e.type}</td>
+                  <td className="py-2 pr-4">{e.category}</td>
+                  <td className="py-2 pr-4">{e.durationMin != null ? `${e.durationMin} min` : "—"}</td>
+                  <td className="py-2 pr-4">{e.comment ?? "—"}</td>
+                  <td className="py-2 font-mono">{e.id}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-          <div className="flex gap-2">
-            <Button onClick={askAI} disabled={loading || !prompt.trim()}>
-              {loading ? "Thinking..." : "Ask AI"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPrompt("");
-                setAnswer("");
-                setError("");
-              }}
-              disabled={loading}
-            >
-              Clear
-            </Button>
+      {/* Metrics + Derivation */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Derived metrics (deterministic)</CardTitle>
+          <CardDescription>Computed from events + shift inputs (repeatable calculation).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground">Availability</div>
+              <div className="text-xl font-semibold">{pct(clamp01(metrics.availability))}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                (Planned − Downtime) / Planned
+              </div>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground">Performance</div>
+              <div className="text-xl font-semibold">{pct(clamp01(metrics.performance))}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                (Output × Ideal CT) / Runtime
+              </div>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground">Quality</div>
+              <div className="text-xl font-semibold">{pct(clamp01(metrics.quality))}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                (Good / Total)
+              </div>
+            </div>
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground">OEE</div>
+              <div className="text-xl font-semibold">{pct(clamp01(metrics.oee))}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                A × P × Q
+              </div>
+            </div>
           </div>
 
-          {error ? (
-            <p className="text-sm text-red-600 whitespace-pre-wrap">{error}</p>
-          ) : null}
+          <Separator />
 
-          {answer ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Answer</CardTitle>
-                <CardDescription>Structured Lean response</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <pre className="whitespace-pre-wrap text-sm">{answer}</pre>
-              </CardContent>
-            </Card>
+          <div className="text-sm space-y-1">
+            <div><span className="font-medium">Planned time:</span> {demoShift.plannedTimeMin} min</div>
+            <div><span className="font-medium">Downtime + changeover:</span> {metrics.downtimeMin} min</div>
+            <div><span className="font-medium">Output:</span> {demoShift.outputUnits} units</div>
+            <div><span className="font-medium">Scrap:</span> {demoShift.scrapUnits} units</div>
+            <div><span className="font-medium">Ideal cycle:</span> {demoShift.idealCycleSec} sec</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Findings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Deterministic findings (rules)</CardTitle>
+          <CardDescription>What the system can conclude without AI.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {findings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No rule-based findings triggered.</p>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              Tip: Ask for “5 Why”, “Pareto ideas”, “countermeasures”, “standard work update”.
+            <ul className="space-y-2">
+              {findings.map((f) => (
+                <li key={f.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{f.description}</div>
+                    <span className="text-xs rounded-full border px-2 py-0.5">{f.severity}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Evidence: {f.evidenceEventIds.join(", ")}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recommended actions (AI)</CardTitle>
+          <CardDescription>Assertive suggestions ranked by impact, tied to evidence events.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {actions.length > 0 ? (
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left">
+                  <tr className="border-b">
+                    <th className="py-2 pr-4">Action</th>
+                    <th className="py-2 pr-4">Category</th>
+                    <th className="py-2 pr-4">Expected impact</th>
+                    <th className="py-2 pr-4">Confidence</th>
+                    <th className="py-2">Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {actions.map((a, idx) => (
+                    <tr key={idx} className="border-b">
+                      <td className="py-2 pr-4">{a.action}</td>
+                      <td className="py-2 pr-4">{a.category}</td>
+                      <td className="py-2 pr-4">{a.expectedImpact}</td>
+                      <td className="py-2 pr-4">{a.confidence}</td>
+                      <td className="py-2 font-mono text-xs">
+                        {(a.evidenceEventIds ?? []).join(", ") || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Run the analysis to generate actions. (If parsing fails, raw output will appear below.)
             </p>
           )}
+
+          {rawAI ? (
+            <div className="rounded-lg border p-3">
+              <div className="text-xs text-muted-foreground mb-2">Raw AI output</div>
+              <pre className="whitespace-pre-wrap text-xs">{rawAI}</pre>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
