@@ -79,17 +79,44 @@ Return 3 to 6 actions max. Rank most important first.
       const text = data?.text || "";
       setRawAI(text);
 
-      // Try to parse JSON actions:
-      try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) {
-          setActions(parsed);
-        } else {
-          setError("AI returned non-array JSON. Showing raw output below.");
+            // Robust JSON extraction:
+      // 1) try direct JSON.parse
+      // 2) if fails, extract first [...] block and parse that
+      // 3) if still fails, show raw output
+      function tryParseJSONArray(s: string) {
+        // remove common wrappers like ```json ... ```
+        const cleaned = s
+          .replace(/```json/gi, "```")
+          .replace(/```/g, "")
+          .trim();
+
+        // attempt direct parse first
+        try {
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {}
+
+        // extract first array block
+        const start = cleaned.indexOf("[");
+        const end = cleaned.lastIndexOf("]");
+        if (start !== -1 && end !== -1 && end > start) {
+          const slice = cleaned.slice(start, end + 1);
+          try {
+            const parsed2 = JSON.parse(slice);
+            if (Array.isArray(parsed2)) return parsed2;
+          } catch {}
         }
-      } catch {
-        setError("AI returned non-JSON output. Showing raw output below.");
+
+        return null;
       }
+
+      const parsed = tryParseJSONArray(text);
+      if (parsed) {
+        setActions(parsed);
+      } else {
+        setError("AI returned output that could not be parsed as a JSON array. Showing raw output below.");
+      }
+
     } catch (e: any) {
       setError(e?.message || "Network/server error");
     } finally {
