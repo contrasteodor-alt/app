@@ -33,8 +33,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(nextPath);
-      router.refresh();
+    window.location.href = nextPath;
+
     } catch (e: any) {
       setErr(e?.message || "Network error");
     } finally {
