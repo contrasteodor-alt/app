@@ -1,47 +1,38 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import {
-  ProductionEvent,
-  EngineeringFinding,
-  RecommendedAction
-} from "@/lib/domain";
+import { cookies } from "next/headers";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { events, findings } = await req.json() as {
-    events: ProductionEvent[];
-    findings: EngineeringFinding[];
-  };
-const session = (await cookies()).get("session")?.value;
-if (!session) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+  const session = (await cookies()).get("session")?.value;
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const prompt = `
-You are a senior manufacturing engineer.
+  const { prompt } = await req.json();
+  if (!prompt) return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
 
-INPUT:
-- Events: ${JSON.stringify(events)}
-- Findings: ${JSON.stringify(findings)}
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
 
-TASK:
-Generate assertive but justified improvement actions.
-Only use Lean Manufacturing logic.
-Do NOT invent data.
-Return JSON array of actions.
-`;
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.2,
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [{ role: "user", content: prompt }],
+    }),
   });
 
-  const actions: RecommendedAction[] = JSON.parse(
-    completion.choices[0].message.content!
-  );
+  const data = await r.json();
 
-  return NextResponse.json(actions);
+  if (!r.ok) {
+    return NextResponse.json({ error: data?.error?.message || "OpenAI error" }, { status: 500 });
+  }
+
+  return NextResponse.json({ text: data?.choices?.[0]?.message?.content ?? "" });
 }
