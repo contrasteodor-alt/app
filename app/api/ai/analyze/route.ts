@@ -1,52 +1,47 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import {
+  ProductionEvent,
+  EngineeringFinding,
+  RecommendedAction
+} from "@/lib/domain";
 
-export const runtime = "nodejs";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
-  try {
-    const { prompt } = await req.json();
+  const { events, findings } = await req.json() as {
+    events: ProductionEvent[];
+    findings: EngineeringFinding[];
+  };
+const session = (await cookies()).get("session")?.value;
+if (!session) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
-    if (!prompt || typeof prompt !== "string") {
-      return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
-    }
+  const prompt = `
+You are a senior manufacturing engineer.
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "OPENAI_API_KEY not set" }, { status: 500 });
-    }
+INPUT:
+- Events: ${JSON.stringify(events)}
+- Findings: ${JSON.stringify(findings)}
 
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+TASK:
+Generate assertive but justified improvement actions.
+Only use Lean Manufacturing logic.
+Do NOT invent data.
+Return JSON array of actions.
+`;
 
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.3,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a Lean Manufacturing expert. Answer concisely and structurally (PDCA, 5 Why, countermeasures, KPIs).",
-          },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+  });
 
-    if (!r.ok) {
-      const errText = await r.text();
-      return NextResponse.json({ error: errText }, { status: 500 });
-    }
+  const actions: RecommendedAction[] = JSON.parse(
+    completion.choices[0].message.content!
+  );
 
-    const data = await r.json();
-    const text = data?.choices?.[0]?.message?.content ?? "";
-
-    return NextResponse.json({ text });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
-  }
+  return NextResponse.json(actions);
 }
