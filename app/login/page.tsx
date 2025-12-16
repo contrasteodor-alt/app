@@ -33,7 +33,8 @@ export default function LoginPage() {
         return;
       }
 
-    window.location.href = nextPath;
+   window.location.href = nextPath || "/select-org";
+
 
     } catch (e: any) {
       setErr(e?.message || "Network error");
