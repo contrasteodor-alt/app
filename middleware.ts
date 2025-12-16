@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/_next", "/favicon.ico"];
-
 function isPublic(pathname: string) {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+  // Public pages
+  if (pathname === "/login") return true;
+
+  // Next internals
+  if (pathname.startsWith("/_next")) return true;
+  if (pathname === "/favicon.ico") return true;
+
+  // ✅ Allow auth endpoints BEFORE login
+  if (pathname.startsWith("/api/auth/")) return true;
+
+  return false;
 }
 
 export function middleware(req: NextRequest) {
@@ -16,10 +24,8 @@ export function middleware(req: NextRequest) {
   // Allow static files
   if (pathname.match(/\.(.*)$/)) return NextResponse.next();
 
-  // Simple cookie-based session check
   const session = req.cookies.get("session")?.value;
 
-  // Block API routes too (important)
   if (!session) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";

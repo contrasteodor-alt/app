@@ -25,7 +25,9 @@ export default function LoginClient() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await r.json();
+      const contentType = r.headers.get("content-type") || "";
+const data = contentType.includes("application/json") ? await r.json() : { error: await r.text() };
+
       if (!r.ok) {
         setErr(data?.error || "Login failed");
         return;
