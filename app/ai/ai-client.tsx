@@ -1,12 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 import type { RecommendedAction } from "@/lib/engineering-demo";
-import { demoEvents, demoShift, deriveMetrics, runDeterministicFindings } from "@/lib/engineering-demo";
+import {
+  demoEvents,
+  demoShift,
+  deriveMetrics,
+  runDeterministicFindings,
+  // If your engineering-demo exports types for events, great.
+  // Otherwise we’ll infer from runtime shape.
+} from "@/lib/engineering-demo";
+
+type IngestedEvent = {
+  id: string;
+  createdAt: string;
+  type: string;
+  lineId: string;
+  timestamp: string;
+  durationMin?: number;
+  qty?: number;
+  category: string;
+  comment?: string;
+  operator?: string;
+  station?: string;
+  tags?: string[];
+};
 
 function pct(x: number) {
   if (!Number.isFinite(x)) return "n/a";
@@ -42,19 +64,76 @@ function tryParseJSONArray(s: string): any[] | null {
   return null;
 }
 
+function mapIngestToEngineeringEvent(e: IngestedEvent) {
+  // Shape expected by your existing analytics:
+  // { id, timestamp, type, category, durationMin, comment }
+  // Plus anything else you want to carry.
+  return {
+    id: e.id,
+    timestamp: e.timestamp,
+    type: e.type,
+    category: e.category,
+    durationMin: e.durationMin,
+    comment: e.comment,
+    lineId: e.lineId,
+    qty: e.qty,
+    station: e.station,
+    operator: e.operator,
+  };
+}
+
 export default function AIClientPage() {
   const [loading, setLoading] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [rawAI, setRawAI] = useState<string>("");
   const [actions, setActions] = useState<RecommendedAction[]>([]);
   const [error, setError] = useState<string>("");
 
-  const metrics = useMemo(() => deriveMetrics(demoEvents, demoShift), []);
-  const findings = useMemo(() => runDeterministicFindings(demoEvents, metrics), [metrics]);
+  const [useIngested, setUseIngested] = useState(true);
+  const [ingestedEvents, setIngestedEvents] = useState<IngestedEvent[]>([]);
+
+  const activeEvents = useMemo(() => {
+    if (useIngested && ingestedEvents.length > 0) {
+      return ingestedEvents.map(mapIngestToEngineeringEvent);
+    }
+    return demoEvents;
+  }, [useIngested, ingestedEvents]);
+
+  const metrics = useMemo(() => deriveMetrics(activeEvents as any, demoShift), [activeEvents]);
+  const findings = useMemo(() => runDeterministicFindings(activeEvents as any, metrics), [activeEvents, metrics]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   }
+
+  async function loadIngested() {
+    setLoadingEvents(true);
+    setError("");
+
+    try {
+      const r = await fetch("/api/ingest/events", { method: "GET" });
+      const contentType = r.headers.get("content-type") || "";
+      const data = contentType.includes("application/json") ? await r.json() : { error: await r.text() };
+
+      if (!r.ok) {
+        setError(data?.error || "Failed to load ingested events");
+        return;
+      }
+
+      setIngestedEvents(data?.events || []);
+    } catch (e: any) {
+      setError(e?.message || "Network error while loading events");
+    } finally {
+      setLoadingEvents(false);
+    }
+  }
+
+  useEffect(() => {
+    // Load once on entry
+    loadIngested();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function runEngineeringReview() {
     setLoading(true);
@@ -76,7 +155,7 @@ Rules:
 DATA:
 Shift Inputs: ${JSON.stringify(demoShift)}
 Derived Metrics: ${JSON.stringify(metrics)}
-Events: ${JSON.stringify(demoEvents)}
+Events: ${JSON.stringify(activeEvents)}
 Deterministic Findings: ${JSON.stringify(findings)}
 
 Output JSON schema:
@@ -86,7 +165,7 @@ Output JSON schema:
     "category": "Machine|Method|Material|Man|Other",
     "expectedImpact": "string",
     "confidence": "Low|Medium|High",
-    "evidenceEventIds": ["e1","e2"]
+    "evidenceEventIds": ["ev_...","ev_..."]
   }
 ]
 `.trim();
@@ -97,7 +176,8 @@ Output JSON schema:
         body: JSON.stringify({ prompt }),
       });
 
-      const data = await r.json();
+      const contentType = r.headers.get("content-type") || "";
+      const data = contentType.includes("application/json") ? await r.json() : { error: await r.text() };
 
       if (!r.ok) {
         setError(data?.error || "AI request failed");
@@ -127,7 +207,7 @@ Output JSON schema:
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Automated Engineering Review</h1>
           <p className="text-muted-foreground">
-            Engineering-first analysis pipeline: Events → Metrics → Findings → Actions
+            Event intake → deterministic metrics/findings → AI actions tied to evidence.
           </p>
         </div>
         <div className="flex gap-2">
@@ -137,13 +217,39 @@ Output JSON schema:
         </div>
       </div>
 
+      {/* Data source */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data source</CardTitle>
+          <CardDescription>Use ingested events (preferred) or fallback demo dataset.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={useIngested ? "default" : "outline"}
+            onClick={() => setUseIngested(true)}
+          >
+            Ingested events ({ingestedEvents.length})
+          </Button>
+          <Button
+            variant={!useIngested ? "default" : "outline"}
+            onClick={() => setUseIngested(false)}
+          >
+            Demo events ({demoEvents.length})
+          </Button>
+          <Button variant="secondary" onClick={loadIngested} disabled={loadingEvents}>
+            {loadingEvents ? "Refreshing..." : "Refresh ingested"}
+          </Button>
+          <div className="text-xs text-muted-foreground">
+            Note: current ingest store is in-memory for MVP; replace with DB next.
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Controls */}
       <Card>
         <CardHeader>
-          <CardTitle>Run standard analysis</CardTitle>
-          <CardDescription>
-            Uses the demo factory dataset and strict JSON output for repeatability.
-          </CardDescription>
+          <CardTitle>Run analysis</CardTitle>
+          <CardDescription>Strict JSON output for repeatable downstream UI.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button onClick={runEngineeringReview} disabled={loading}>
@@ -164,67 +270,29 @@ Output JSON schema:
         </CardContent>
       </Card>
 
-      {/* Event Log */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Event log</CardTitle>
-          <CardDescription>Structured production events (engineering source of truth).</CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left">
-              <tr className="border-b">
-                <th className="py-2 pr-4">Time</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Category</th>
-                <th className="py-2 pr-4">Duration</th>
-                <th className="py-2 pr-4">Comment</th>
-                <th className="py-2">ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {demoEvents.map((e) => (
-                <tr key={e.id} className="border-b">
-                  <td className="py-2 pr-4">{e.timestamp}</td>
-                  <td className="py-2 pr-4">{e.type}</td>
-                  <td className="py-2 pr-4">{e.category}</td>
-                  <td className="py-2 pr-4">{e.durationMin != null ? `${e.durationMin} min` : "—"}</td>
-                  <td className="py-2 pr-4">{e.comment ?? "—"}</td>
-                  <td className="py-2 font-mono">{e.id}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
-
       {/* Metrics */}
       <Card>
         <CardHeader>
           <CardTitle>Derived metrics (deterministic)</CardTitle>
-          <CardDescription>Computed from shift inputs + events (repeatable).</CardDescription>
+          <CardDescription>Computed from shift inputs + active event set.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Availability</div>
               <div className="text-xl font-semibold">{pct(clamp01(metrics.availability))}</div>
-              <div className="text-xs text-muted-foreground mt-1">(Planned − Downtime) / Planned</div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Performance</div>
               <div className="text-xl font-semibold">{pct(clamp01(metrics.performance))}</div>
-              <div className="text-xs text-muted-foreground mt-1">(Output × Ideal CT) / Runtime</div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">Quality</div>
               <div className="text-xl font-semibold">{pct(clamp01(metrics.quality))}</div>
-              <div className="text-xs text-muted-foreground mt-1">(Good / Total)</div>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-xs text-muted-foreground">OEE</div>
               <div className="text-xl font-semibold">{pct(clamp01(metrics.oee))}</div>
-              <div className="text-xs text-muted-foreground mt-1">A × P × Q</div>
             </div>
           </div>
 
@@ -232,19 +300,8 @@ Output JSON schema:
 
           <div className="text-sm space-y-1">
             <div>
-              <span className="font-medium">Planned time:</span> {demoShift.plannedTimeMin} min
-            </div>
-            <div>
-              <span className="font-medium">Downtime + changeover:</span> {metrics.downtimeMin} min
-            </div>
-            <div>
-              <span className="font-medium">Output:</span> {demoShift.outputUnits} units
-            </div>
-            <div>
-              <span className="font-medium">Scrap:</span> {demoShift.scrapUnits} units
-            </div>
-            <div>
-              <span className="font-medium">Ideal cycle:</span> {demoShift.idealCycleSec} sec
+              <span className="font-medium">Events used:</span>{" "}
+              {useIngested && ingestedEvents.length > 0 ? "Ingested" : "Demo"} ({activeEvents.length})
             </div>
           </div>
         </CardContent>
@@ -254,7 +311,7 @@ Output JSON schema:
       <Card>
         <CardHeader>
           <CardTitle>Deterministic findings (rules)</CardTitle>
-          <CardDescription>Conclusions the system can make without AI.</CardDescription>
+          <CardDescription>What we can conclude without AI.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {findings.length === 0 ? (
@@ -281,7 +338,7 @@ Output JSON schema:
       <Card>
         <CardHeader>
           <CardTitle>Recommended actions (AI)</CardTitle>
-          <CardDescription>Assertive recommendations, tied to evidence events.</CardDescription>
+          <CardDescription>Must cite evidence event IDs.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {actions.length > 0 ? (
@@ -313,7 +370,7 @@ Output JSON schema:
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Click <span className="font-medium">Run engineering analysis</span> to generate actions.
+              Run analysis to generate actions.
             </p>
           )}
 
