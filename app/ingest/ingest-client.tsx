@@ -1,3 +1,24 @@
+type ShiftHeader = {
+  id: string;
+  started_at: string;
+  planned_time_min: number;
+  ideal_cycle_sec: number;
+  output_units: number;
+  scrap_units: number;
+  shift_name: string;
+};
+
+const [shift, setShift] = useState<ShiftHeader | null>(null);
+const [shiftForm, setShiftForm] = useState(() => ({
+  shiftName: "A",
+  startedAt: new Date().toISOString(),
+  plannedTimeMin: 450,
+  idealCycleSec: 12,
+  outputUnits: 1200,
+  scrapUnits: 18,
+}));
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -84,10 +105,12 @@ export default function IngestClient() {
     }));
   }, [form.type]);
 
-  async function refreshEvents() {
+  async function refreshEvents(shiftId?: string) {
     setErr("");
     try {
-      const r = await fetch("/api/ingest/events", { method: "GET" });
+     const url = shiftId ? `/api/ingest/events?shiftId=${encodeURIComponent(shiftId)}` : "/api/ingest/events";
+const r = await fetch(url, { method: "GET" });
+
       const data = await r.json();
       if (!r.ok) {
         setErr(data?.error || "Failed to load events");
@@ -99,9 +122,11 @@ export default function IngestClient() {
     }
   }
 
-  useEffect(() => {
-    refreshEvents();
-  }, []);
+ useEffect(() => {
+  loadShift().then(() => refreshEvents());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
 
   function validate(e: NewEvent): string | null {
     if (!e.lineId) return "Line is required.";
@@ -128,7 +153,47 @@ export default function IngestClient() {
     return null;
   }
 
+async function loadShift() {
+  try {
+    const r = await fetch("/api/ingest/shift");
+    const data = await r.json();
+    if (r.ok) setShift(data.shift);
+  } catch {}
+}
+
+async function saveShift() {
+  setErr("");
+  setOkMsg("");
+
+  try {
+    const r = await fetch("/api/ingest/shift", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(shiftForm),
+    });
+
+    const data = await r.json();
+    if (!r.ok) {
+      setErr(data?.error || "Failed to save shift header");
+      return;
+    }
+
+    setShift(data.shift);
+    setOkMsg(`Saved shift ${data.shift.id}`);
+    await refreshEvents(data.shift.id);
+  } catch (e: any) {
+    setErr(e?.message || "Network error");
+  }
+}
+
+
   async function submit() {
+if (!shift?.id) {
+  setErr("Save Shift Header first (shiftId required).");
+  setLoading(false);
+  return;
+}
+
     setLoading(true);
     setErr("");
     setOkMsg("");
@@ -144,7 +209,8 @@ export default function IngestClient() {
       const r = await fetch("/api/ingest/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, shiftId: shift.id }),
+
       });
 
       const contentType = r.headers.get("content-type") || "";
@@ -166,7 +232,41 @@ export default function IngestClient() {
   }
 
   return (
-    <div className="space-y-6">
+   <div className="grid gap-6 lg:grid-cols-2">
+  {/* LEFT COLUMN */}
+  <div className="space-y-6">
+
+    {/* ✅ SHIFT HEADER CARD — ADD HERE */}
+    <Card>
+      <CardHeader>
+        <CardTitle>Shift header</CardTitle>
+        <CardDescription>
+          Hard inputs used for OEE, AI reasoning and traceability.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* shift inputs + save button */}
+      </CardContent>
+    </Card>
+
+    {/* EXISTING: NEW EVENT CARD */}
+    <Card>
+      <CardHeader>
+        <CardTitle>New event</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* existing event form */}
+      </CardContent>
+    </Card>
+
+  </div>
+
+  {/* RIGHT COLUMN */}
+  <div className="space-y-6">
+    {/* events table / timeline */}
+  </div>
+</div>
+
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Ingest production events</h1>
         <p className="text-muted-foreground">

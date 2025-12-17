@@ -1,90 +1,121 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 type EventType = "downtime" | "changeover" | "scrap" | "quality" | "note";
 
-type NewEvent = {
-  type: EventType;
-  lineId: string;
-  timestamp: string;
-  durationMin?: number;
-  qty?: number;
-  category: string;
-  comment?: string;
-  operator?: string;
-  station?: string;
-  tags?: string[];
-};
-
-type StoredEvent = NewEvent & { id: string; createdAt: string };
-
-// ⚠️ Demo-only in-memory store (resets on restart). Replace with DB next.
-const g = globalThis as any;
-g.__INGEST_EVENTS__ = g.__INGEST_EVENTS__ || [];
-const store: StoredEvent[] = g.__INGEST_EVENTS__;
-
-function requireSession() {
-  const session = (cookies() as any).get?.("session")?.value;
-  return session;
-}
-
 function isPosInt(n: any) {
   return Number.isInteger(n) && n > 0;
 }
 
-function validate(e: NewEvent): string | null {
-  if (!e.lineId) return "lineId is required";
-  if (!e.timestamp) return "timestamp is required";
-  if (!e.category) return "category is required";
-  if (!e.type) return "type is required";
+async function requireSession() {
+  const c = await cookies();
+  return c.get("session")?.value;
+}
 
-  const needsDuration = e.type === "downtime" || e.type === "changeover";
-  const needsQty = e.type === "scrap" || e.type === "quality";
+function validate(body: any): string | null {
+  if (!body.shiftId) return "shiftId is required (save shift header first)";
+  if (!body.lineId) return "lineId is required";
+  if (!body.timestamp) return "timestamp is required";
+  if (!body.category) return "category is required";
+  if (!body.type) return "type is required";
+
+  const t = body.type as EventType;
+  const needsDuration = t === "downtime" || t === "changeover";
+  const needsQty = t === "scrap" || t === "quality";
 
   if (needsDuration) {
-    if (!isPosInt(e.durationMin)) return "durationMin must be a positive integer";
-  } else if (e.durationMin != null) {
+    if (!isPosInt(Number(body.durationMin))) return "durationMin must be a positive integer";
+  } else if (body.durationMin != null) {
     return "durationMin must be empty for this type";
   }
 
   if (needsQty) {
-    if (!isPosInt(e.qty)) return "qty must be a positive integer";
-  } else if (e.qty != null) {
+    if (!isPosInt(Number(body.qty))) return "qty must be a positive integer";
+  } else if (body.qty != null) {
     return "qty must be empty for this type";
   }
 
   return null;
 }
 
-function newId() {
-  return `ev_${Math.random().toString(36).slice(2, 8)}_${Date.now().toString(36)}`;
-}
-
-export async function GET() {
-  const session = requireSession();
+export async function GET(req: Request) {
+  const session = await requireSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Return most recent first
-  const events = [...store].reverse().slice(0, 200);
+  const url = new URL(req.url);
+  const shiftId = url.searchParams.get("shiftId");
+
+  const sb = supabaseAdmin();
+  let q = sb.from("events").select("*").order("occurred_at", { ascending: false }).limit(200);
+
+  if (shiftId) q = q.eq("shift_id", shiftId);
+
+  const { data, error } = await q;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Keep UI contract similar to before
+  const events = (data ?? []).map((e: any) => ({
+    id: e.id,
+    createdAt: e.created_at,
+    type: e.event_type,
+    lineId: e.line_id,
+    timestamp: e.occurred_at,
+    durationMin: e.duration_min,
+    qty: e.qty,
+    category: e.category,
+    station: e.station,
+    operator: e.operator,
+    comment: e.comment,
+  }));
+
   return NextResponse.json({ events });
 }
 
 export async function POST(req: Request) {
-  const session = requireSession();
+  const session = await requireSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await req.json()) as NewEvent;
+  const body = await req.json();
   const v = validate(body);
   if (v) return NextResponse.json({ error: v }, { status: 400 });
 
-  const event: StoredEvent = {
-    ...body,
-    id: newId(),
-    createdAt: new Date().toISOString(),
-  };
+  const sb = supabaseAdmin();
 
-  store.push(event);
-  return NextResponse.json({ event });
+  const { data, error } = await sb
+    .from("events")
+    .insert({
+      shift_id: body.shiftId,
+      line_id: body.lineId,
+      event_type: body.type,
+      category: body.category,
+      occurred_at: body.timestamp,
+      duration_min: body.durationMin ?? null,
+      qty: body.qty ?? null,
+      station: body.station ?? null,
+      operator: body.operator ?? null,
+      comment: body.comment ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({
+    event: {
+      id: data.id,
+      createdAt: data.created_at,
+      type: data.event_type,
+      lineId: data.line_id,
+      timestamp: data.occurred_at,
+      durationMin: data.duration_min,
+      qty: data.qty,
+      category: data.category,
+      station: data.station,
+      operator: data.operator,
+      comment: data.comment,
+    },
+  });
 }
