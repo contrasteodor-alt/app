@@ -1,5 +1,6 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -69,16 +70,19 @@ function isPositiveInt(n: any) {
 }
 
 export default function IngestClient() {
+
+  
   const [loading, setLoading] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loadingShift, setLoadingShift] = useState(false);
 
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState("");
 
   const [events, setEvents] = useState<StoredEvent[]>([]);
 
   // Shift header from DB
+  
   const [shift, setShift] = useState<ShiftHeader | null>(null);
   const [shiftForm, setShiftForm] = useState(() => ({
     shiftName: "A",
@@ -88,6 +92,7 @@ export default function IngestClient() {
     outputUnits: 1200,
     scrapUnits: 18,
   }));
+  const [activeShiftId, setActiveShiftId] = useState<string | null>(null);
 
   // Event form
   const [form, setForm] = useState<NewEvent>(() => ({
@@ -157,44 +162,42 @@ export default function IngestClient() {
     }
   }
 
-  async function saveShift() {
-    setErr("");
-    setOkMsg("");
+  const params = useParams();
+const orgId = params.id as string;
+
+async function saveShift() {
+  try {
     setLoadingShift(true);
+    setErr(null);
 
-    try {
-      const payload = {
-        shiftName: shiftForm.shiftName,
-        startedAt: shiftForm.startedAt,
-        plannedTimeMin: Number(shiftForm.plannedTimeMin),
-        idealCycleSec: Number(shiftForm.idealCycleSec),
-        outputUnits: Number(shiftForm.outputUnits),
-        scrapUnits: Number(shiftForm.scrapUnits),
-      };
+    const res = await fetch("/api/ingest/shift", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+   
+   body: JSON.stringify({
+       orgId,
+       ...shiftForm, // shiftName, startedAt, lineId, etc
+     }),
+    });
 
-      const r = await fetch("/api/ingest/shift", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const ct = r.headers.get("content-type") || "";
-      const data = ct.includes("application/json") ? await r.json() : { error: await r.text() };
-
-      if (!r.ok) {
-        setErr(data?.error || "Failed to save shift header");
-        return;
-      }
-
-      setShift(data.shift);
-      setOkMsg(`Saved shift ${data.shift.id}`);
-      await refreshEvents(data.shift.id);
-    } catch (e: any) {
-      setErr(e?.message || "Network error while saving shift header");
-    } finally {
-      setLoadingShift(false);
+    if (!res.ok) {
+      throw new Error(await res.text());
     }
+
+    const data = await res.json();
+
+    // ✅ THIS is where it belongs
+    setActiveShiftId(data.shift.id);
+    setShift(data.shift);
+    setOkMsg("Shift saved and active.");
+
+  } catch (e: any) {
+    setErr(e.message || "Failed to save shift");
+  } finally {
+    setLoadingShift(false);
   }
+}
+
 
   async function refreshEvents(shiftId?: string) {
     setLoadingEvents(true);
@@ -333,6 +336,23 @@ export default function IngestClient() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* LEFT: Shift + Event form */}
         <div className="space-y-4 lg:col-span-1">
+
+{activeShiftId && (
+  <div className="rounded-lg border bg-muted/40 px-4 py-3">
+    <div className="text-sm text-muted-foreground">
+      Active shift
+    </div>
+    <div className="text-base font-medium">
+      {shift?.shift_name} • Line {form.lineId} •{" "}
+{shift?.started_at
+  ? new Date(shift.started_at).toLocaleDateString()
+  : "—"}
+
+
+    </div>
+  </div>
+)}
+
           {/* Shift Header */}
           <Card>
             <CardHeader>

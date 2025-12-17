@@ -2,28 +2,37 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const supabase = createClient();
+  try {
+    const supabase = await createClient(); // ✅ correct factory
+    const body = await req.json();
 
-  const { error, data } = await supabase
-    .from("action_plans")
-    .insert({
-      org_id: body.orgId,
-      line_id: body.lineId,
-      shift_id: body.shiftId ?? null,
-      action_date: body.actionDate,
-      action: body.action,
-      root_cause: body.rootCause,
-      owner: body.owner,
-      due_date: body.dueDate,
-      status: body.status,
-    })
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("action_plans")
+      .insert({
+        org_id: body.orgId,
+        line_id: body.lineId,
+        date_of_action: body.dateOfAction,
+        action: body.action,
+        root_cause: body.rootCause,
+        owner: body.owner,
+        due_date: body.dueDate,
+        status: body.status ?? "Open",
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("Insert action_plan failed:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    console.error("POST /api/actions failed:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ action: data });
 }
