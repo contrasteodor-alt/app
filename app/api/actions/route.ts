@@ -1,14 +1,62 @@
-
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+//import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
+
+
+
+export const runtime = "nodejs";
+
+type ActionStatus = "Open" | "Closed" | "Delayed" | "Canceled";
+
+interface ActionPayload {
+  orgId: string;
+  lineId: string;
+  shiftId: string;
+  actionDate: string;
+  action: string;
+  rootCause: string;
+  owner: string;
+  dueDate: string;
+  status: ActionStatus;
+}
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body: ActionPayload = await req.json();
 
-    const { data, error } = await supabaseAdmin
+    const {
+      orgId,
+      lineId,
+      shiftId,
+      actionDate,
+      action,
+      rootCause,
+      owner,
+      dueDate,
+      status,
+    } = body;
+
+    if (!orgId || !lineId || !shiftId || !action) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+    const supabase = getSupabaseAdmin();
+
+    const { data, error } = await supabase
       .from("action_plans")
-      .insert(body)
+      .insert({
+        org_id: orgId,
+        line_id: lineId,
+        shift_id: shiftId,
+        action_date: actionDate,
+        action,
+        root_cause: rootCause,
+        owner,
+        due_date: dueDate,
+        status,
+      })
       .select()
       .single();
 

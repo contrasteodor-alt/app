@@ -1,17 +1,20 @@
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-import { createClient } from "@supabase/supabase-js";
+let adminClient: SupabaseClient | null = null;
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export function getSupabaseAdmin(): SupabaseClient {
+  if (adminClient) return adminClient;
 
-if (!supabaseUrl || !serviceKey) {
-  throw new Error("Missing Supabase server environment variables");
-}
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  serviceKey,
-  {
-    auth: { persistSession: false }
+  if (!url || !key) {
+    throw new Error("Missing Supabase server environment variables");
   }
-);
+
+  adminClient = createClient(url, key, {
+    auth: { persistSession: false },
+  });
+
+  return adminClient;
+}
