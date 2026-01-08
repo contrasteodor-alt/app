@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+//import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
 
 type EventType = "downtime" | "changeover" | "scrap" | "quality";
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
+    const supabase = supabaseAdmin;
     const body = await req.json();
 
     const t = body.type as EventType;
