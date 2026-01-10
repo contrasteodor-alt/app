@@ -14,13 +14,28 @@ export function OrgSwitcher({ currentOrgId }: OrgSwitcherProps) {
 	const pathname = usePathname();
 
 	const orgOptions = useMemo(() => mockOrganizations, []);
+ 
 
 	const handleChange = (value: string) => {
-		if (!value) return;
-		const isOrgScoped = pathname?.includes('/org/');
-		const target = isOrgScoped ? `/org/${value}/overview` : `/org/${value}/overview`;
-		router.push(target);
-	};
+	if (!value) return;
+
+	// 1️⃣ Save global Lean context
+	localStorage.setItem(
+		'lean-context',
+		JSON.stringify({
+			orgId: value
+		})
+	);
+
+	// 2️⃣ Navigate as before
+	const isOrgScoped = pathname?.includes('/org/');
+	const target = isOrgScoped
+		? `/org/${value}/overview`
+		: `/org/${value}/overview`;
+
+	router.push(target);
+};
+
 
 	return (
 		<div className="min-w-[220px]">
