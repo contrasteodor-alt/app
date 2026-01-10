@@ -50,40 +50,44 @@ export default function AIClientPage() {
       setLoading(false);
     }
   }
+//change from here
 
-  async function createActionFromAI(item: AISuggestion) {
-    const payload = {
-      orgId: "demo-org",
-      lineId: "line-1",
+async function createActionFromAI(item: AISuggestion) {
+  const payload = {
+    orgId: "demo-org",
+    lineId: "line-1",
 
-      actionDate: today(),
-      action: item.action,
-      rootCause: `${item.category} issue detected by AI`,
-      owner: "Production Engineering",
-      dueDate: addDays(7),
-      status: "Open",
+    action: item.action,
+    rootCause: `${item.category} identified from production events`,
+    owner: "Production Engineering",
+    dueDate: addDays(7),
+    status: "Open",
 
-      aiSource: {
-        confidence: item.confidence,
-        expectedImpact: item.expectedImpact,
-        evidenceEventIds: item.evidenceEventIds ?? [],
-      },
-    };
+    aiSource: {
+      confidence: item.confidence,
+      expectedImpact: item.expectedImpact,
+      evidenceEventIds: item.evidenceEventIds ?? [],
+    },
+  };
 
-    const res = await fetch("/api/actions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+  const res = await fetch("/api/actions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-    if (!res.ok) {
-      alert("Failed to create action plan");
-      return;
-    }
-
-    alert("✅ Action added to Action Plan");
+  if (!res.ok) {
+    const t = await res.text();
+    console.error("Create action failed:", t);
+    alert("Failed to create action plan");
+    return;
   }
 
+  alert("✅ AI action registered in Action Plan");
+}
+
+
+// to here 
   return (
     <div className="space-y-6">
       {/* Header */}
