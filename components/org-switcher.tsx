@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+//import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockOrganizations } from '@/lib/mock-data';
@@ -14,7 +15,24 @@ export function OrgSwitcher({ currentOrgId }: OrgSwitcherProps) {
 	const pathname = usePathname();
 
 	const orgOptions = useMemo(() => mockOrganizations, []);
- 
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+	
+		const existing = localStorage.getItem('lean-context');
+		if (existing) return;
+	
+		const defaultOrgId = currentOrgId ?? orgOptions[0]?.id;
+		if (!defaultOrgId) return;
+	
+		localStorage.setItem(
+			'lean-context',
+			JSON.stringify({
+				orgId: defaultOrgId
+			})
+		);
+	}, [currentOrgId, orgOptions]);
+	
 
 	const handleChange = (value: string) => {
 	if (!value) return;
