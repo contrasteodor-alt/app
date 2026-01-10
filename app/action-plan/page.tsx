@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+/* ======================
+   TYPES
+====================== */
 type Event = {
   id: string;
   event_type: string;
@@ -24,20 +27,31 @@ type ActionPlan = {
   source: string;
 };
 
-export default function ActionPlanPage() {
-  // CONTEXT (hardcoded for now – later din context / selector)
-  const orgId = "ORG_1";
-  const lineId = "LINE_1";
-  const shiftId = ""; // optional
+/* ======================
+   CONTEXT
+====================== */
+function getLeanContext() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("lean-context");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-  // STATE
+/* ======================
+   PAGE
+====================== */
+export default function ActionPlanPage() {
+  /* ---------- STATE ---------- */
   const [events, setEvents] = useState<Event[]>([]);
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
 
-  // FORM STATE
+  /* ---------- FORM ---------- */
   const [action, setAction] = useState("");
   const [rootCause, setRootCause] = useState("");
   const [owner, setOwner] = useState("");
@@ -47,22 +61,23 @@ export default function ActionPlanPage() {
      DATA LOAD
   ====================== */
   useEffect(() => {
+    const ctx = getLeanContext();
+    if (!ctx?.orgId) return;
+
     loadEvents();
-    loadActions();
+    loadActions(ctx.orgId);
   }, []);
 
   async function loadEvents() {
     setLoading(true);
-    const res = await fetch(
-      `/api/ingest/events${shiftId ? `?shiftId=${shiftId}` : ""}`
-    );
+    const res = await fetch(`/api/ingest/events`);
     const json = await res.json();
     setEvents(json.events || []);
     setLoading(false);
   }
 
-  async function loadActions() {
-    const res = await fetch(`/api/actions`);
+  async function loadActions(orgId: string) {
+    const res = await fetch(`/api/actions?orgId=${orgId}`);
     const json = await res.json();
     setActionPlans(json.actions || []);
   }
@@ -72,9 +87,7 @@ export default function ActionPlanPage() {
   ====================== */
   function toggleEvent(id: string) {
     setSelectedEventIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((e) => e !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
     );
   }
 
@@ -87,12 +100,18 @@ export default function ActionPlanPage() {
       return;
     }
 
+    const ctx = getLeanContext();
+    if (!ctx?.orgId) {
+      alert("No active organization context");
+      return;
+    }
+
     const res = await fetch("/api/actions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        orgId,
-        lineId,
+        orgId: ctx.orgId,
+        lineId: null,
         action,
         rootCause,
         owner,
@@ -109,7 +128,7 @@ export default function ActionPlanPage() {
       return;
     }
 
-    // RESET
+    /* RESET */
     setShowDrawer(false);
     setSelectedEventIds([]);
     setAction("");
@@ -117,7 +136,10 @@ export default function ActionPlanPage() {
     setOwner("");
     setDueDate("");
 
-    loadActions();
+    const ctxReload = getLeanContext();
+    if (ctxReload?.orgId) {
+      loadActions(ctxReload.orgId);
+    }
   }
 
   /* ======================
@@ -165,23 +187,14 @@ export default function ActionPlanPage() {
       </table>
 
       {selectedEventIds.length > 0 && (
-        <button
-          style={{ marginTop: 16 }}
-          onClick={() => setShowDrawer(true)}
-        >
+        <button style={{ marginTop: 16 }} onClick={() => setShowDrawer(true)}>
           Create Action Plan
         </button>
       )}
 
       {/* DRAWER */}
       {showDrawer && (
-        <div
-          style={{
-            marginTop: 24,
-            padding: 16,
-            border: "1px solid #333",
-          }}
-        >
+        <div style={{ marginTop: 24, padding: 16, border: "1px solid #333" }}>
           <h3>Create Action Plan</h3>
 
           <div>
@@ -205,10 +218,7 @@ export default function ActionPlanPage() {
           <div>
             <label>Owner</label>
             <br />
-            <input
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-            />
+            <input value={owner} onChange={(e) => setOwner(e.target.value)} />
           </div>
 
           <div>
