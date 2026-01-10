@@ -10,7 +10,8 @@ export async function GET(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(req.url);
-    const orgId = searchParams.get("orgId");
+
+/*    const orgId = searchParams.get("orgId");
 
     if (!orgId) {
       return NextResponse.json(
@@ -24,6 +25,26 @@ export async function GET(req: Request) {
       .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false });
+*/
+//de aici
+
+const shiftId = searchParams.get("shiftId");
+
+if (!shiftId) {
+  return NextResponse.json(
+    { error: "shiftId query param required" },
+    { status: 400 }
+  );
+}
+
+const { data, error } = await supabase
+  .from("action_plans")
+  .select("*")
+  .eq("shift_id", shiftId)
+  .order("created_at", { ascending: false });
+
+
+// pana aici
 
     if (error) {
       console.error("LOAD ACTIONS ERROR:", error);

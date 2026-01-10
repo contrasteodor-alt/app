@@ -60,27 +60,44 @@ export default function ActionPlanPage() {
   /* ======================
      DATA LOAD
   ====================== */
-  useEffect(() => {
+ /* useEffect(() => {
     const ctx = getLeanContext();
     if (!ctx?.orgId) return;
 
     loadEvents();
-    loadActions(ctx.orgId);
-  }, []);
+   // loadActions(ctx.orgId);
+   loadActions(activeShiftId);
+  }, []);*/
+  //de aici
+  async function loadActiveShift(orgId: string) {
+    const res = await fetch(`/api/shifts/active?orgId=${orgId}`);
+    const json = await res.json();
+  
+    if (!json.shift?.id) return;
+  
+    const shiftId = json.shift.id;
+  
+   // loadEvents(shiftId);
+    loadActions(shiftId);
+  }
+  
+  //pana aici
 
-  async function loadEvents() {
+  async function loadEvents(shiftId: string) {
     setLoading(true);
-    const res = await fetch(`/api/ingest/events`);
+    const res = await fetch(`/api/ingest/events?shiftId=${shiftId}`);
     const json = await res.json();
     setEvents(json.events || []);
     setLoading(false);
   }
+  
 
-  async function loadActions(orgId: string) {
-    const res = await fetch(`/api/actions?orgId=${orgId}`);
+  async function loadActions(shiftId: string) {
+    const res = await fetch(`/api/actions?shiftId=${shiftId}`);
     const json = await res.json();
     setActionPlans(json.actions || []);
   }
+  
 
   /* ======================
      EVENT SELECTION
