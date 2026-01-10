@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 const navLinks = [
 	{ href: '/select-org', label: 'Organizations' },
 	{ href: '/ingest', label: 'Ingest' },
+	{ href: '/action-plan', label: 'Action Plan' },
 	{ href: '/ai', label: 'AI' },
 	{ href: '/improvement/kaizen', label: 'Kaizen' }
 ];
