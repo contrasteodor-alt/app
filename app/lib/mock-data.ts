@@ -1,0 +1,74 @@
+// lib/mock-data.ts
+
+export type Organization = {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+};
+
+
+export type Line = {
+  id: string;
+  orgId: string;
+  name: string;
+  status?: string;
+  outputPerHour?: number;
+  lastUpdate?: string;
+};
+
+// --------------------
+// Mock data (SINGLE SOURCE OF TRUTH)
+// --------------------
+
+export const organizations: Organization[] = [
+  {
+    id: "demo-org",
+    name: "Demo Factory",
+    description: "Lean KPI demo workspace",
+    location: "Arad, RO",
+  },
+];
+
+
+// Alias expected by some components
+export const mockOrganizations = organizations;
+
+export const lines: Line[] = [
+  {
+    id: "line-1",
+    orgId: "demo-org",
+    name: "Assembly Line 1",
+    status: "running",
+    outputPerHour: 120,
+    lastUpdate: "10 min ago",
+  },
+  {
+    id: "line-2",
+    orgId: "demo-org",
+    name: "Assembly Line 2",
+    status: "stopped",
+    outputPerHour: 0,
+    lastUpdate: "1 hour ago",
+  },
+];
+
+// --------------------
+// Selectors
+// --------------------
+
+export function getOrganizations() {
+  return organizations;
+}
+
+export function getOrganizationById(id: string) {
+  return organizations.find((o) => o.id === id);
+}
+
+export function getLinesForOrg(orgId: string) {
+  return lines.filter((l) => l.orgId === orgId);
+}
+
+export function getLineById(lineId: string) {
+  return lines.find((l) => l.id === lineId);
+}
