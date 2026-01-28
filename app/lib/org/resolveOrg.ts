@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+/*export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { redirect } from "next/navigation";
@@ -23,4 +23,13 @@ export async function resolveOrg(userId: string) {
   }
 
   return data.org_id as string;
+}*/
+
+export async function resolveOrg(userId: string) {
+  if (process.env.DEMO_MODE === "true") {
+    return "b1e703aa-b2a7-4bc4-8f39-4cad931eaa25"; // Demo Factory
+  }
+
+  throw new Error("Auth disabled temporarily");
 }
+

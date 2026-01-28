@@ -1,15 +1,7 @@
+import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
-/**
- * IMPORTANT:
- * - NO static import of `cookies`
- * - NO top-level await
- * - EVERYTHING request-scoped
- */
-export async function createSupabaseServerClient() {
-  // ✅ Lazy import — safe for build
-  const { cookies } = await import("next/headers");
-
+export function createSupabaseServerClient() {
   const cookieStore = cookies();
 
   return createServerClient(
@@ -17,8 +9,19 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set({ name, value, ...options });
+            });
+          } catch {
+            // `setAll` may be called in a Server Component where
+            // mutating cookies is not supported. This can be safely
+            // ignored if middleware is handling session refresh.
+          }
         },
       },
     }
