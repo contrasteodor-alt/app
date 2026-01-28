@@ -1,20 +1,14 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function getOrganizationById(
-  supabase: SupabaseClient,
-  orgId: string
-) {
+export async function getOrganization(orgId: string) {
+  const supabase = createSupabaseServerClient();
+
   const { data, error } = await supabase
     .from("organizations")
-    .select("org_id, name, location")
-    .eq("org_id", orgId)
+    .select("*")
+    .eq("id", orgId)
     .single();
 
-  if (error || !data) return null;
-
-  return {
-    id: data.org_id,
-    name: data.name,
-    location: data.location,
-  };
+  if (error) throw error;
+  return data;
 }
