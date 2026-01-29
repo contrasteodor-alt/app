@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -5,39 +6,51 @@ export default function HomePage() {
     <div className="flex flex-col gap-20">
 
       {/* HERO */}
-      <section className="relative rounded-3xl bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900 text-white p-16 overflow-hidden">
-        <div className="relative z-10 max-w-3xl">
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-            Understand <span className="text-purple-300">WHY</span> You Lose OEE
-            <br />& Have Scrap —<br />
-            And What to Fix Next
-          </h1>
+      
+<section className="relative h-[100svh] w-full overflow-hidden">
+  {/* Background */}
+  <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-900" />
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.15),transparent_60%)]" />
 
-          <p className="mt-6 text-lg text-slate-200">
-            CoMo Expert uses AI to explain downtime, scrap and losses —  
-            transforming factory data into clear operational decisions.
-          </p>
+      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center text-white">
 
-          <div className="mt-8 flex gap-4">
-            <Link
-              href="/login"
-              className="rounded-xl bg-purple-500 px-6 py-3 font-semibold hover:bg-purple-400 transition"
-            >
-              Get Started
-            </Link>
+        {/* Logo */}
+        <Image
+          src="/assets/Como_logo_Teh2.png"
+          alt="CoMo Expert"
+          width={140}
+          height={140}
+          priority
+          className="mb-6"
+        />
 
-            <Link
-              href="/login?demo=true"
-              className="rounded-xl border border-white/30 px-6 py-3 font-semibold hover:bg-white/10 transition"
-            >
-              Enter Live Demo
-            </Link>
-          </div>
-        </div>
+        <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+          Understand <span className="text-purple-300">WHY</span> You Lose OEE
+          <br />& Have Scrap —
+          <br />And What to Fix Next
+        </h1>
 
-        {/* background blur */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
-      </section>
+        <p className="mt-6 max-w-2xl text-lg text-slate-200">
+          AI that explains downtime and scrap —
+          so you know exactly what to improve.
+        </p>
+
+        <Link
+          href="/login"
+          className="mt-10 rounded-xl bg-purple-500 px-10 py-4 text-lg font-semibold hover:bg-purple-400 transition"
+        >
+          Get Started
+        </Link>
+
+        <p className="absolute bottom-6 text-sm text-slate-300">
+          © {new Date().getFullYear()} CoMo Expert. All rights reserved.
+        </p>
+      </div>
+    </section>
+  );
+
+
+
 
       {/* KPI SECTION */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
