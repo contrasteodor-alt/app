@@ -6,13 +6,13 @@ export function createSupabaseServerClient() {
 
   const supabaseUrl =
     mode === "demo"
-      ? process.env.SUPABASE_URL_DEMO
-      : process.env.SUPABASE_URL;
+      ? process.env.NEXT_PUBLIC_SUPABASE_URL_DEMO
+      : process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   const supabaseKey =
     mode === "demo"
-      ? process.env.SUPABASE_SERVICE_ROLE_KEY_DEMO
-      : process.env.SUPABASE_SERVICE_ROLE_KEY;
+      ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_DEMO
+      : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error("Supabase server env vars are missing");

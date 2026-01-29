@@ -2,59 +2,135 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background">
-      <div className="mx-auto w-full max-w-4xl px-6">
-        <div className="rounded-2xl border bg-card p-10 shadow-sm">
-          <div className="mb-10 text-center">
-            <h1 className="text-4xl font-bold tracking-tight">
-              CoMo Lean AI
-            </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Factory operations insights, continuous improvement, and AI-driven decision support.
-            </p>
-          </div>
+    <div className="flex flex-col gap-20">
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Organization login */}
-            <div className="rounded-xl border p-6 hover:shadow transition">
-              <h2 className="text-xl font-semibold mb-2">
-                Organization Access
-              </h2>
-              <p className="mb-6 text-muted-foreground">
-                Sign in to your organization workspace to manage operations,
-                KPIs, and improvement actions.
-              </p>
-              <Link
-                href="/login"
-                className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Go to Login
-              </Link>
-            </div>
+      {/* HERO */}
+      <section className="relative rounded-3xl bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900 text-white p-16 overflow-hidden">
+        <div className="relative z-10 max-w-3xl">
+          <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+            Understand <span className="text-purple-300">WHY</span> You Lose OEE
+            <br />& Have Scrap —<br />
+            And What to Fix Next
+          </h1>
 
-            {/* Demo access */}
-            <div className="rounded-xl border p-6 hover:shadow transition">
-              <h2 className="text-xl font-semibold mb-2">
-                Live Demo
-              </h2>
-              <p className="mb-6 text-muted-foreground">
-                Explore the platform with a fully functional demo factory.
-                No account required.
-              </p>
-              <Link
-                href="/b1e703aa-b2a7-4bc4-8f39-4cad931eaa25"
-                className="inline-flex w-full items-center justify-center rounded-lg border px-4 py-2 font-medium hover:bg-muted"
-              >
-                Enter Demo
-              </Link>
-            </div>
-          </div>
+          <p className="mt-6 text-lg text-slate-200">
+            CoMo Expert uses AI to explain downtime, scrap and losses —  
+            transforming factory data into clear operational decisions.
+          </p>
 
-          <div className="mt-10 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} CoMo Lean AI. All rights reserved.
+          <div className="mt-8 flex gap-4">
+            <Link
+              href="/login"
+              className="rounded-xl bg-purple-500 px-6 py-3 font-semibold hover:bg-purple-400 transition"
+            >
+              Get Started
+            </Link>
+
+            <Link
+              href="/login?demo=true"
+              className="rounded-xl border border-white/30 px-6 py-3 font-semibold hover:bg-white/10 transition"
+            >
+              Enter Live Demo
+            </Link>
           </div>
         </div>
+
+        {/* background blur */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_60%)]" />
+      </section>
+
+      {/* KPI SECTION */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <OEECard />
+        <ScrapCard />
+      </section>
+
+      {/* AI FLOW */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <InfoCard
+          title="AI Detects Root Cause"
+          text="Downtime, scrap and losses are automatically linked to real operational causes."
+        />
+        <InfoCard
+          title="AI Suggests Actions"
+          text="Maintenance, process or organizational actions are proposed based on data."
+        />
+        <InfoCard
+          title="You Decide & Improve"
+          text="Managers stay in control. AI supports decisions — it doesn’t replace them."
+        />
+      </section>
+
+      {/* FOOTER */}
+      <footer className="mt-20 border-t pt-8 text-center text-sm text-muted-foreground">
+        © {new Date().getFullYear()} CoMo Expert. All rights reserved.
+      </footer>
+    </div>
+  );
+}
+
+/* ---------------- COMPONENTS ---------------- */
+
+function OEECard() {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h3 className="font-semibold mb-4">OEE Breakdown</h3>
+
+      <div className="mb-4">
+        <span className="text-3xl font-bold text-purple-600">58%</span>
+        <p className="text-sm text-muted-foreground">Overall OEE</p>
       </div>
-    </main>
+
+      <div className="space-y-3">
+        <Bar label="Equipment Failure" value={26} />
+        <Bar label="Changeovers" value={15} />
+        <Bar label="Material Shortage" value={10} />
+      </div>
+    </div>
+  );
+}
+
+function ScrapCard() {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h3 className="font-semibold mb-4">Scrap Analysis</h3>
+
+      <div className="mb-4">
+        <span className="text-3xl font-bold text-red-500">12%</span>
+        <p className="text-sm text-muted-foreground">Scrap Rate</p>
+      </div>
+
+      <ul className="space-y-2 text-sm">
+        <li>🔴 Defective Parts</li>
+        <li>🟡 Operator Error</li>
+        <li>🟢 Bad Material</li>
+      </ul>
+    </div>
+  );
+}
+
+function Bar({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span>{label}</span>
+        <span>{value}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-200">
+        <div
+          className="h-2 rounded-full bg-purple-500"
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h4 className="font-semibold mb-2">{title}</h4>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
   );
 }
