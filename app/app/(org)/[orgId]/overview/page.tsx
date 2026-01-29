@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 
 // import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getOrganizationById } from "@/lib/data/organizations";
+import { getOrganization } from "@/lib/data/organizations";
+
 import { getLinesForOrg } from "@/lib/data/lines";
 
 const { createSupabaseServerClient } = await import(
@@ -31,7 +32,8 @@ export default async function OrgOverviewPage({
 
   const supabase = await createSupabaseServerClient();
 
-  const org = await getOrganizationById(supabase, orgId);
+  const org = await getOrganization(orgId);
+
   const lines = await getLinesForOrg(supabase, orgId);
 
   if (!org) {
@@ -59,7 +61,8 @@ export default async function OrgOverviewPage({
                 Output/hr: {line.outputPerHour ?? "n/a"}
               </div>
               <Button asChild variant="secondary">
-                <Link href={`/org/${orgId}/lines/${line.id}`}>
+                <Link href={`/${orgId}/lines/${line.id}`}>
+
                   View line
                 </Link>
               </Button>
