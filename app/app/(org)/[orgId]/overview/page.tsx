@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Card,
-  CardContent,
+  CardContent, 
   CardDescription,
   CardHeader,
   CardTitle,

@@ -61,9 +61,9 @@ export function getOrganizations() {
   return organizations;
 }
 
-export function getOrganizationById(id: string) {
-  return organizations.find((o) => o.id === id);
-}
+//export function getOrganizationById(id: string) {
+//  return organizations.find((o) => o.id === id);
+//}
 
 export function getLinesForOrg(orgId: string) {
   return lines.filter((l) => l.orgId === orgId);
