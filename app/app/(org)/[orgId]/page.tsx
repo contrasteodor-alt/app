@@ -1,41 +1,97 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
-import { getOrganization } from "../../../lib/data/organizations";
-import { getLinesForOrg } from "../../../lib/data/lines";
-import { createSupabaseServerClient } from "../../../lib/supabase/server";
+import { notFound } from "next/navigation";
 
-export default async function Page({
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+import { getOrganization } from "@/lib/data/organizations";
+import { getLinesForOrg } from "@/lib/data/lines";
+import { getLatestKpisForOrg } from "@/lib/data/kpis";
+
+const { createSupabaseServerClient } = await import(
+  "@/lib/supabase/server"
+);
+
+type OrgOverviewPageProps = {
+  params: Promise<{ orgId: string }>;
+};
+
+export default async function OrgOverviewPage({
   params,
-}: {
-  params: { orgId: string };
-}) {
-  const supabase = createSupabaseServerClient();
+}: OrgOverviewPageProps) {
+  const { orgId } = await params;
 
-  const org = await getOrganization(params.orgId);
-  const lines = await getLinesForOrg(supabase, params.orgId);
+  const supabase = await createSupabaseServerClient();
+
+  const org = await getOrganization(orgId);
+  if (!org) {
+    notFound();
+  }
+
+  const lines = await getLinesForOrg(supabase, orgId);
+  const kpis = await getLatestKpisForOrg(supabase, orgId);
+
+  // merge lines with latest KPIs
+  const linesWithKpis = lines.map((line) => {
+    const kpi = kpis.find((k) => k.line_id === line.id);
+
+    return {
+      id: line.id,
+      name: line.name,
+      oee: kpi?.oee ?? null,
+      scrap_rate: kpi?.scrap_rate ?? null,
+    };
+  });
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold">{org.name}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {org.name}
+        </h1>
         <p className="text-muted-foreground">
-          Select a production line to continue.
+          Production lines overview
         </p>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {lines.map((line) => (
-          <Link
-            key={line.id}
-            href={`/${params.orgId}/lines/${line.id}`}
-            className="rounded-lg border p-4 hover:bg-muted"
-          >
-            <h2 className="font-semibold">{line.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              Status: {line.status}
-            </p>
-          </Link>
+      <div className="grid gap-4 md:grid-cols-2">
+        {linesWithKpis.map((line) => (
+          <Card key={line.id}>
+            <CardHeader>
+              <CardTitle>{line.name}</CardTitle>
+              <CardDescription>
+                OEE:{" "}
+                {line.oee !== null
+                  ? `${(line.oee * 100).toFixed(1)}%`
+                  : "n/a"}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Scrap:{" "}
+                {line.scrap_rate !== null
+                  ? `${(line.scrap_rate * 100).toFixed(2)}%`
+                  : "n/a"}
+              </div>
+
+              <Button asChild variant="secondary">
+                <Link href={`/${orgId}/lines/${line.id}`}>
+                  View line
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         ))}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

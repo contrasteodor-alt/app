@@ -9,14 +9,16 @@ export function Navbar() {
         </Link>
 
         <nav className="flex items-center gap-4">
-          <Link href="/login" className="text-sm hover:underline">
-            Login
+          <Link href= "https://comoexpertatyn.my.canva.site/" className="font-bold text-lg text-purple-700">
+            Como_main_page
           </Link>
           <Link
-            href="/login?demo=true"
+            href="/b1e703aa-b2a7-4bc4-8f39-4cad931eaa25"
             className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500"
           >
-            Live Demo
+          
+
+            Enter Demo
           </Link>
         </nav>
       </div>
