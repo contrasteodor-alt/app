@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+
+console.log("SB URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log("SB KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 12));
+
+
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();

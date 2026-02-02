@@ -23,15 +23,18 @@ export async function requireSession() {
   return user;
 }*/
 
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
 export async function requireSession() {
-  if (process.env.DEMO_MODE === "true") {
-    return {
-      id: "demo-user",
-      email: "demo_org@factory.com",
-      role: "admin",
-    };
+  const supabase = createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated");
   }
 
-  throw new Error("Auth disabled temporarily");
+  return user;
 }
-

@@ -2,28 +2,27 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export function createSupabaseServerClient() {
-  const mode = process.env.NEXT_PUBLIC_APP_MODE;
-
-  const supabaseUrl =
-    mode === "demo"
-      ? process.env.NEXT_PUBLIC_SUPABASE_URL_DEMO
-      : process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  const supabaseKey =
-    mode === "demo"
-      ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_DEMO
-      : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase server env vars are missing");
+    throw new Error("Supabase env vars are missing");
   }
-
-  const cookieStore = cookies();
 
   return createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+      getAll() {
+        const cookieStore = cookies();
+        return cookieStore.getAll().map((cookie) => ({
+          name: cookie.name,
+          value: cookie.value,
+        }));
+      },
+      setAll(cookiesToSet) {
+        const cookieStore = cookies();
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set({ name, value, ...options });
+        });
       },
     },
   });
