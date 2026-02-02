@@ -30,11 +30,13 @@ export async function requireSession() {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error("Not authenticated");
+  if (error || !user) {
+    throw new Error("NO_SESSION");
   }
 
   return user;
 }
+

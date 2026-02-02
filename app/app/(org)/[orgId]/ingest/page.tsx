@@ -14,8 +14,6 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
-
-
 const DOWNTIME_REASONS = [
   "Maintenance",
   "Quality",
@@ -61,29 +59,37 @@ export default function IngestPage() {
   // Handlers
   // ─────────────────────────────
   async function onSubmit() {
-    setLoading(true);
-    setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-    const res = await fetch("/api/ingest/shift", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shift,
-        downtime,
-        scrap,
-      }),
-    });
+      const res = await fetch("/api/ingest/shift", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shift,
+          downtime,
+          scrap,
+        }),
+      });
 
-    const data = await res.json();
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.error || "Failed to save shift";
+        setError(message);
+        setLoading(false);
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Failed to save shift");
+      // After successful save, go back to org overview
+      router.push(`/${orgId}`);
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message || "Unexpected error");
       setLoading(false);
-      return;
     }
-
-    router.push(`/org/${orgId}/overview`);
-    router.refresh();
   }
 
   // ─────────────────────────────
