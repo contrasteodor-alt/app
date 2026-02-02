@@ -4,10 +4,11 @@ export async function getOrganization(orgId: string) {
   const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
-    .from("organizations")
-    .select("*")
-    .eq("id", orgId)
-    .single();
+  .from("organizations")
+  .select("*")
+  .eq("org_id", orgId)
+  .single();
+  
 
   if (error) throw error;
   return data;
