@@ -31,6 +31,8 @@ export default function OrgLayout({
 
 import { redirect, notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { LogoutButton } from "@/components/logout-button";
+
 
 export default async function OrgLayout({
   children,
@@ -67,5 +69,13 @@ export default async function OrgLayout({
   }
 
   // 3. Org exists & user has access → render
-  return <>{children}</>;
+  return (
+    <>
+      <div className="flex justify-end p-4">
+        <LogoutButton />
+      </div>
+      {children}
+    </>
+  );
+  
 }

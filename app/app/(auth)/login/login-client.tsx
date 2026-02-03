@@ -5,6 +5,29 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { PublicNavbar } from "@/components/public-navbar";
 
+
+
+
+export function LogoutButton() {
+  const router = useRouter();
+  const supabase = createSupabaseBrowserClient();
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      className="text-slate-700 hover:text-slate-900 text-sm"
+    >
+      Logout
+    </button>
+  );
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
