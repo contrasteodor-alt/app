@@ -25,11 +25,12 @@ export default function HomePage() {
           </p>
 
           <Link
-            href="/login"
-            className="mt-10 rounded-xl bg-purple-500 px-10 py-4 text-lg font-semibold hover:bg-purple-400 transition"
+              href="/login?mode=signup"
+              className="mt-10 rounded-xl bg-purple-500 px-10 py-4 text-lg font-semibold hover:bg-purple-400 transition"
           >
-            Get Started
+               Get Started
           </Link>
+
 
           <p className="absolute bottom-6 text-sm text-slate-300">
             © {new Date().getFullYear()} CoMo Expert. All rights reserved.
