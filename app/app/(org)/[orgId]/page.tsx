@@ -1,97 +1,87 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOrganization } from "@/lib/data/organizations";
-import { getLinesForOrg } from "@/lib/data/lines";
-import { getLatestKpisForOrg } from "@/lib/data/kpis";
+import { getOrgOverviewData } from "@/lib/data/org-overview";
 
-const { createSupabaseServerClient } = await import(
-  "@/lib/supabase/server"
-);
-
-type OrgOverviewPageProps = {
-  params: Promise<{ orgId: string }>;
-};
-
-export default async function OrgOverviewPage({
+export default async function OrgHome({
   params,
-}: OrgOverviewPageProps) {
-  const { orgId } = await params;
+}: {
+  params: { orgId: string };
+}) {
+  const supabase = createSupabaseServerClient();
 
-  const supabase = await createSupabaseServerClient();
+  const org = await getOrganization(params.orgId);
+  if (!org) notFound();
 
-  const org = await getOrganization(orgId);
-  if (!org) {
-    notFound();
-  }
-
-  const lines = await getLinesForOrg(supabase, orgId);
-  const kpis = await getLatestKpisForOrg(supabase, orgId);
-
-  // merge lines with latest KPIs
-  const linesWithKpis = lines.map((line) => {
-    const kpi = kpis.find((k) => k.line_id === line.id);
-
-    return {
-      id: line.id,
-      name: line.name,
-      oee: kpi?.oee ?? null,
-      scrap_rate: kpi?.scrap_rate ?? null,
-    };
-  });
+  const data = await getOrgOverviewData(supabase, params.orgId);
+  if (!data) notFound();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-8">
+
+      {/* TOP COMMAND PANEL */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="col-span-1 space-y-2">
+          <h1 className="text-3xl font-semibold">{org.name}</h1>
+          <p className="text-muted-foreground">This week</p>
+
+          <div className="mt-4">
+            <div className="text-5xl font-bold">
+              {(data.weekOee * 100).toFixed(1)}%
+            </div>
+            <div className="text-muted-foreground">Overall OEE</div>
+          </div>
+
+          <div className="mt-2">
+            <div className="text-2xl font-medium">
+              {(data.weekScrap * 100).toFixed(2)}%
+            </div>
+            <div className="text-muted-foreground">Overall Scrap</div>
+          </div>
+        </div>
+
+        {/* TREND (placeholder for chart lib) */}
+        <div className="col-span-2 rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground mb-2">
+            Last 30 days evolution
+          </p>
+
+          {/* Chart will go here */}
+          <pre className="text-xs bg-muted/30 p-2 rounded">
+            {JSON.stringify(data.trend30d.slice(-5), null, 2)}
+          </pre>
+        </div>
+      </div>
+
+      {/* LINES TABLE */}
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {org.name}
-        </h1>
-        <p className="text-muted-foreground">
-          Production lines overview
-        </p>
-      </div>
+        <h2 className="text-xl font-semibold mb-4">
+          Production lines (best → worst)
+        </h2>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {linesWithKpis.map((line) => (
-          <Card key={line.id}>
-            <CardHeader>
-              <CardTitle>{line.name}</CardTitle>
-              <CardDescription>
-                OEE:{" "}
-                {line.oee !== null
-                  ? `${(line.oee * 100).toFixed(1)}%`
-                  : "n/a"}
-              </CardDescription>
-            </CardHeader>
+        <div className="border rounded-lg divide-y">
+          {data.linesRanked.map((l) => (
+            <div
+              key={l.id}
+              className="flex justify-between items-center px-4 py-3 hover:bg-muted/30"
+            >
+              <div className="font-medium">{l.name}</div>
 
-            <CardContent className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Scrap:{" "}
-                {line.scrap_rate !== null
-                  ? `${(line.scrap_rate * 100).toFixed(2)}%`
-                  : "n/a"}
+              <div className="flex gap-6 text-sm">
+                <div>
+                  OEE: {(l.oee * 100).toFixed(1)}%
+                </div>
+                <div>
+                  Scrap: {(l.scrap * 100).toFixed(2)}%
+                </div>
               </div>
-
-              <Button asChild variant="secondary">
-                <Link href={`/${orgId}/lines/${line.id}`}>
-                  View line
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          ))}
+        </div>
       </div>
+
     </div>
   );
 }

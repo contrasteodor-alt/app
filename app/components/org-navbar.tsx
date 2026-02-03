@@ -10,19 +10,16 @@ export function OrgNavbar() {
 
   const navItems = [
     { label: "Overview", href: `/${orgId}` },
-    { label: "OEE", href: `/${orgId}/oee` },
-    { label: "Scrap", href: `/${orgId}/scrap` },
+    { label: "AI", href: `/${orgId}/ai` },
+    { label: "Improvement", href: `/${orgId}/improvement/actions` },
     { label: "Insert Data", href: `/${orgId}/ingest` },
-    { label: "Actions", href: `/${orgId}/actions` },
   ];
 
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-
         {/* LEFT: Logo */}
         <Link href="/" className="flex items-center gap-2">
-
           <Image
             src="/assets/Como_logo_Teh2.png"
             alt="CoMo Expert"
@@ -38,7 +35,10 @@ export function OrgNavbar() {
         {/* CENTER: Navigation */}
         <nav className="flex gap-6">
           {navItems.map((item) => {
-            const active = pathname === item.href;
+            const active =
+              pathname === item.href ||
+              pathname.startsWith(item.href + "/");
+
             return (
               <Link
                 key={item.label}
@@ -55,7 +55,7 @@ export function OrgNavbar() {
           })}
         </nav>
 
-        {/* RIGHT: Org name */}
+        {/* RIGHT: Org context */}
         <div className="text-sm text-muted-foreground">
           Organization
         </div>

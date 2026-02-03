@@ -31,8 +31,8 @@ export default function OrgLayout({
 
 import { redirect, notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { OrgNavbar } from "@/components/org-navbar";
 import { LogoutButton } from "@/components/logout-button";
-
 
 export default async function OrgLayout({
   children,
@@ -43,7 +43,7 @@ export default async function OrgLayout({
 }) {
   const supabase = createSupabaseServerClient();
 
-  // 1. Get user
+  // 1. Require authenticated user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -52,30 +52,30 @@ export default async function OrgLayout({
     redirect("/login");
   }
 
-  // 2. Check user has access to this org
-  const { data: userOrg, error: userOrgError } = await supabase
+  // 2. Check user has access to this organization
+  const { data: userOrg, error } = await supabase
     .from("user_orgs")
     .select("org_id")
     .eq("user_id", user.id)
-    .eq("org_id", params.orgId);
+    .eq("org_id", params.orgId)
+    .single();
 
-  if (userOrgError) {
-    throw userOrgError;
-  }
-
-  if (!userOrg || userOrg.length === 0) {
-    // user authenticated but has no access to this org
+  if (error || !userOrg) {
     notFound();
   }
 
-  // 3. Org exists & user has access → render
+  // 3. Authenticated + authorized → render org environment
   return (
-    <>
-      <div className="flex justify-end p-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <OrgNavbar />
+
+      <div className="flex justify-end px-6 py-2">
         <LogoutButton />
       </div>
-      {children}
-    </>
+
+      <main className="flex-1 mx-auto w-full max-w-7xl px-6 py-6">
+        {children}
+      </main>
+    </div>
   );
-  
 }
