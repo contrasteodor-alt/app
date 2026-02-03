@@ -4,7 +4,8 @@ import { PublicNavbar } from "@/components/public-navbar";
 export default function HomePage() {
   return (
     <>
-      <PublicNavbar />
+      <PublicNavbar isHomePage />
+
 
       <section className="relative h-[100svh] w-full overflow-hidden">
         {/* Background */}

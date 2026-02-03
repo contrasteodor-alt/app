@@ -13,7 +13,8 @@ export function Navbar() {
             Como_main_page
           </Link>
           <Link
-            href="/b1e703aa-b2a7-4bc4-8f39-4cad931eaa25"
+            href="/login?mode=demo"
+
             className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500"
           >
           

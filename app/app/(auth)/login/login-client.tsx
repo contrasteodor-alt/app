@@ -28,8 +28,16 @@ export default function LoginClient() {
   }, [isDemo]);
 
   async function onSubmit() {
-    setLoading(true);
-    setError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    if (user) {
+      setError("E-mail address already associated with an account. Please go to the Login page!");
+      setLoading(false);
+      return;
+    }
+    
 
     // SIGNUP (Get Started)
     if (isSignup) {
@@ -73,7 +81,8 @@ export default function LoginClient() {
     if (isDemo) {
       router.push("/b1e703aa-b2a7-4bc4-8f39-4cad931eaa25");
     } else {
-      router.push("/");
+      router.push("/resolve-org");
+
     }
 
     router.refresh();
@@ -81,7 +90,8 @@ export default function LoginClient() {
 
   return (
     <>
-      <PublicNavbar />
+      <PublicNavbar isLoginPage={mode === "login"} />
+
 
       <div className="flex min-h-screen items-center justify-center">
         <div className="w-full max-w-sm space-y-4">
