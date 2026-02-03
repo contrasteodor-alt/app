@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getOrganization } from "@/lib/data/organizations";
 import { getOrgOverviewData } from "@/lib/data/org-overview";
+import { OrgEvolutionChart } from "@/components/org/org-evolution-chart";
+import { oeeColor, scrapColor } from "@/components/ui/kpi-colors";
 
 export default async function OrgHome({
   params,
@@ -19,62 +21,88 @@ export default async function OrgHome({
   if (!data) notFound();
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-12">
 
       {/* TOP COMMAND PANEL */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-1 space-y-2">
-          <h1 className="text-3xl font-semibold">{org.name}</h1>
-          <p className="text-muted-foreground">This week</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
-          <div className="mt-4">
-            <div className="text-5xl font-bold">
-              {(data.weekOee * 100).toFixed(1)}%
-            </div>
-            <div className="text-muted-foreground">Overall OEE</div>
+        {/* LEFT: KPIs */}
+        <div className="col-span-1 flex flex-col gap-6">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {org.name}
+            </h1>
+            <p className="text-muted-foreground">
+              This week
+            </p>
           </div>
 
-          <div className="mt-2">
-            <div className="text-2xl font-medium">
+          <div>
+            <div
+              className={`text-6xl font-semibold tracking-tight ${oeeColor(
+                data.weekOee
+              )}`}
+            >
+              {(data.weekOee * 100).toFixed(1)}%
+            </div>
+            <div className="text-muted-foreground">
+              Overall OEE
+            </div>
+          </div>
+
+          <div>
+            <div
+              className={`text-2xl font-normal ${scrapColor(
+                data.weekScrap
+              )}`}
+            >
               {(data.weekScrap * 100).toFixed(2)}%
             </div>
-            <div className="text-muted-foreground">Overall Scrap</div>
+            <div className="text-muted-foreground">
+              Overall Scrap
+            </div>
           </div>
         </div>
 
-        {/* TREND (placeholder for chart lib) */}
-        <div className="col-span-2 rounded-lg border p-4">
-          <p className="text-sm text-muted-foreground mb-2">
+        {/* RIGHT: EVOLUTION */}
+        <div className="col-span-2 rounded-xl border bg-background/50 p-6">
+          <p className="text-sm font-medium text-muted-foreground mb-4">
             Last 30 days evolution
           </p>
 
-          {/* Chart will go here */}
-          <pre className="text-xs bg-muted/30 p-2 rounded">
-            {JSON.stringify(data.trend30d.slice(-5), null, 2)}
-          </pre>
+          <OrgEvolutionChart data={data.trend30d} />
         </div>
       </div>
 
-      {/* LINES TABLE */}
+      {/* LINES RANKING */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">
+        <h2 className="text-2xl font-semibold tracking-tight mb-6">
           Production lines (best → worst)
         </h2>
 
-        <div className="border rounded-lg divide-y">
+        <div className="border rounded-xl divide-y overflow-hidden">
           {data.linesRanked.map((l) => (
             <div
               key={l.id}
-              className="flex justify-between items-center px-4 py-3 hover:bg-muted/30"
+              className="flex justify-between items-center px-6 py-4 hover:bg-muted/40 transition"
             >
-              <div className="font-medium">{l.name}</div>
+              <div className="flex items-center gap-2 font-medium">
+  {l.name}
+  {l.openActions > 0 && (
+    <span
+      title={`${l.openActions} open actions`}
+      className="inline-block h-2 w-2 rounded-full bg-red-500"
+    />
+  )}
+</div>
 
-              <div className="flex gap-6 text-sm">
-                <div>
-                  OEE: {(l.oee * 100).toFixed(1)}%
+
+              <div className="flex gap-8 text-sm font-medium">
+                <div className={oeeColor(l.oee)}>
+                  {(l.oee * 100).toFixed(1)}%
                 </div>
-                <div>
-                  Scrap: {(l.scrap * 100).toFixed(2)}%
+                <div className={scrapColor(l.scrap)}>
+                  {(l.scrap * 100).toFixed(2)}%
                 </div>
               </div>
             </div>

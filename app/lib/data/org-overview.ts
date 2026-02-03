@@ -58,13 +58,34 @@ export async function getOrgOverviewData(
     .select("id, name")
     .eq("org_id", orgId);
 
-  const linesRanked =
+    const { data: actions } = await supabase
+    .from("action_plans")
+    .select("line_id")
+    .eq("status", "Open")
+    .in(
+      "line_id",
+      lines.data?.map((l) => l.id) ?? []
+    );
+  
+  const actionsByLine = new Map<string, number>();
+  
+  actions?.forEach((a) => {
+    actionsByLine.set(
+      a.line_id,
+      (actionsByLine.get(a.line_id) ?? 0) + 1
+    );
+  });
+  
+
+    const linesRanked =
     lines.data?.map((l) => ({
       id: l.id,
       name: l.name,
       oee: average(byLine.get(l.id)?.oee ?? []),
       scrap: average(byLine.get(l.id)?.scrap ?? []),
+      openActions: actionsByLine.get(l.id) ?? 0,
     })) ?? [];
+  
 
   // Sort best → worst
   linesRanked.sort((a, b) => {

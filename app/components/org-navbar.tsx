@@ -10,16 +10,18 @@ export function OrgNavbar() {
 
   const navItems = [
     { label: "Overview", href: `/${orgId}` },
-    { label: "AI", href: `/${orgId}/ai` },
-    { label: "Improvement", href: `/${orgId}/improvement/actions` },
+    { label: "OEE", href: `/${orgId}/oee` },
+    { label: "Scrap", href: `/${orgId}/scrap` },
+    { label: "Action Plan", href: `/${orgId}/action-plan/oee` },
     { label: "Insert Data", href: `/${orgId}/ingest` },
   ];
 
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+
         {/* LEFT: Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href={`/${orgId}`} className="flex items-center gap-2">
           <Image
             src="/assets/Como_logo_Teh2.png"
             alt="CoMo Expert"
@@ -55,7 +57,7 @@ export function OrgNavbar() {
           })}
         </nav>
 
-        {/* RIGHT: Org context */}
+        {/* RIGHT: Context */}
         <div className="text-sm text-muted-foreground">
           Organization
         </div>
