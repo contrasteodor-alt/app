@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -31,13 +31,44 @@ const SCRAP_REASONS = [
   "Other",
 ];
 
-export default function IngestPage() {
+export default function InsertDataPage() {
   const router = useRouter();
   const { orgId } = useParams<{ orgId: string }>();
 
-  // ─────────────────────────────
-  // Shift header
-  // ─────────────────────────────
+  const [file, setFile] = useState<File | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  async function handleExcelImport() {
+    if (!file) return;
+
+    setImportLoading(true);
+    setImportError(null);
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(`/api/import/excel?orgId=${orgId}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      setImportResult(json);
+
+      if (!res.ok) {
+        setImportError(json?.error || "Import failed");
+      }
+    } catch {
+      setImportError("Network or server error");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
   const [shift, setShift] = useState({
     date: new Date().toISOString().slice(0, 10),
     shift: "A",
@@ -47,59 +78,69 @@ export default function IngestPage() {
     plannedMinutes: 480,
   });
 
-  // ─────────────────────────────
-  // Downtime & Scrap
-  // ─────────────────────────────
   const [downtime, setDowntime] = useState<any[]>([]);
   const [scrap, setScrap] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ─────────────────────────────
-  // Handlers
-  // ─────────────────────────────
   async function onSubmit() {
     try {
-      setLoading(true);
-      setError(null);
+      setSaving(true);
+      setSaveError(null);
 
       const res = await fetch("/api/ingest/shift", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shift,
-          downtime,
-          scrap,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shift, downtime, scrap }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        const message = data?.error || "Failed to save shift";
-        setError(message);
-        setLoading(false);
+        setSaveError(data?.error || "Failed to save shift");
+        setSaving(false);
         return;
       }
 
-      // After successful save, go back to org overview
       router.push(`/${orgId}`);
       router.refresh();
     } catch (e: any) {
-      setError(e?.message || "Unexpected error");
-      setLoading(false);
+      setSaveError(e?.message || "Unexpected error");
+      setSaving(false);
     }
   }
 
-  // ─────────────────────────────
-  // Render
-  // ─────────────────────────────
   return (
     <div className="space-y-6 p-6 max-w-5xl">
+      <Card>
+        <CardHeader>
+          <CardTitle>Import Excel</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            type="file"
+            accept=".xlsx"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+
+          <Button onClick={handleExcelImport} disabled={!file || importLoading}>
+            {importLoading ? "Importing…" : "Import Excel"}
+          </Button>
+
+          {importLoading && <p className="text-sm">⏳ Processing file…</p>}
+          {importError && (
+            <p className="text-sm text-red-600">{importError}</p>
+          )}
+
+          {importResult && (
+            <pre className="max-h-64 overflow-auto rounded bg-black p-3 text-xs text-green-400">
+              {JSON.stringify(importResult, null, 2)}
+            </pre>
+          )}
+        </CardContent>
+      </Card>
+
       <h1 className="text-2xl font-semibold">Shift Ingest</h1>
 
-      {/* ───── Shift Context ───── */}
       <Card>
         <CardHeader>
           <CardTitle>Shift Context</CardTitle>
@@ -111,31 +152,34 @@ export default function IngestPage() {
             onChange={(e) => setShift({ ...shift, date: e.target.value })}
           />
 
-<Select
-  value={shift.shift}
-  onValueChange={(v) => setShift({ ...shift, shift: v as "A" | "B" | "C" })}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Shift" />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="A">A</SelectItem>
-    <SelectItem value="B">B</SelectItem>
-    <SelectItem value="C">C</SelectItem>
-  </SelectContent>
-</Select>
-
+          <Select
+            value={shift.shift}
+            onValueChange={(v) => setShift({ ...shift, shift: v })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Shift" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="A">A</SelectItem>
+              <SelectItem value="B">B</SelectItem>
+              <SelectItem value="C">C</SelectItem>
+            </SelectContent>
+          </Select>
 
           <Input
             placeholder="Line ID"
             value={shift.lineId}
-            onChange={(e) => setShift({ ...shift, lineId: e.target.value })}
+            onChange={(e) =>
+              setShift({ ...shift, lineId: e.target.value })
+            }
           />
 
           <Input
             placeholder="Product"
             value={shift.product}
-            onChange={(e) => setShift({ ...shift, product: e.target.value })}
+            onChange={(e) =>
+              setShift({ ...shift, product: e.target.value })
+            }
           />
 
           <Input
@@ -143,7 +187,10 @@ export default function IngestPage() {
             placeholder="Target / hour"
             value={shift.targetPerHour}
             onChange={(e) =>
-              setShift({ ...shift, targetPerHour: Number(e.target.value) })
+              setShift({
+                ...shift,
+                targetPerHour: Number(e.target.value),
+              })
             }
           />
 
@@ -152,13 +199,15 @@ export default function IngestPage() {
             placeholder="Planned minutes"
             value={shift.plannedMinutes}
             onChange={(e) =>
-              setShift({ ...shift, plannedMinutes: Number(e.target.value) })
+              setShift({
+                ...shift,
+                plannedMinutes: Number(e.target.value),
+              })
             }
           />
         </CardContent>
       </Card>
 
-      {/* ───── Downtime ───── */}
       <Card>
         <CardHeader>
           <CardTitle>Downtime</CardTitle>
@@ -177,26 +226,25 @@ export default function IngestPage() {
                 }}
               />
 
-<Select
-  value={d.reason}
-  onValueChange={(v) => {
-    const copy = [...downtime];
-    copy[i].reason = v;
-    setDowntime(copy);
-  }}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Reason" />
-  </SelectTrigger>
-  <SelectContent>
-    {DOWNTIME_REASONS.map((r) => (
-      <SelectItem key={r} value={r}>
-        {r}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
+              <Select
+                value={d.reason}
+                onValueChange={(v) => {
+                  const copy = [...downtime];
+                  copy[i].reason = v;
+                  setDowntime(copy);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOWNTIME_REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <Input
                 placeholder="Details"
@@ -234,7 +282,6 @@ export default function IngestPage() {
         </CardContent>
       </Card>
 
-      {/* ───── Scrap ───── */}
       <Card>
         <CardHeader>
           <CardTitle>Scrap</CardTitle>
@@ -253,27 +300,25 @@ export default function IngestPage() {
                 }}
               />
 
-<Select
-  value={s.reason}
-  onValueChange={(v) => {
-    const copy = [...scrap];
-    copy[i].reason = v;
-    setScrap(copy);
-  }}
->
-  <SelectTrigger>
-    <SelectValue placeholder="Scrap reason" />
-  </SelectTrigger>
-
-  <SelectContent>
-    {SCRAP_REASONS.map((r) => (
-      <SelectItem key={r} value={r}>
-        {r}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-
+              <Select
+                value={s.reason}
+                onValueChange={(v) => {
+                  const copy = [...scrap];
+                  copy[i].reason = v;
+                  setScrap(copy);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Scrap reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCRAP_REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <Input
                 placeholder="Details"
@@ -311,10 +356,10 @@ export default function IngestPage() {
         </CardContent>
       </Card>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {saveError && <p className="text-red-600">{saveError}</p>}
 
-      <Button onClick={onSubmit} disabled={loading}>
-        {loading ? "Saving…" : "Save shift"}
+      <Button onClick={onSubmit} disabled={saving}>
+        {saving ? "Saving…" : "Save shift"}
       </Button>
     </div>
   );
