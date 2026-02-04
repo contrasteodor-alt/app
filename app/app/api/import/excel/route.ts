@@ -10,15 +10,29 @@ import { writeRawData } from "@/lib/import/writeRawData";
 export async function POST(req: Request) {
   try {
     // 1. Read multipart form
-    const formData = await req.formData();
-    const file = formData.get("file");
+const formData = await req.formData();
+const file = formData.get("file");
 
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { success: false, error: "No file uploaded" },
-        { status: 400 }
-      );
-    }
+if (!file || typeof file === "string") {
+  return NextResponse.json(
+    { success: false, error: "No file uploaded" },
+    { status: 400 }
+  );
+}
+
+// TypeScript now knows this is a file-like object
+const filename = file.name;
+
+if (!filename.endsWith(".xlsx")) {
+  return NextResponse.json(
+    { success: false, error: "Only .xlsx files are allowed" },
+    { status: 400 }
+  );
+}
+
+
+
+
 
     // 2. File type check
     if (!file.name.endsWith(".xlsx")) {
@@ -29,7 +43,8 @@ export async function POST(req: Request) {
     }
 
     // 3. Read file into buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await (file as any).arrayBuffer());
+
 
     // 4. Parse Excel
     const data = parseExcel(buffer);
