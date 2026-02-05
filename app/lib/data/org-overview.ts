@@ -2,106 +2,127 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 export async function getOrgOverviewData(
   supabase: SupabaseClient,
-  orgId: string
+  orgId: string,
+  plantId: string,
+  dateFrom: string,
+  dateTo: string
 ) {
-  // --- 1. Get last 30 days KPIs
-  const { data: kpis, error } = await supabase
-    .from("kpi_daily")
-    .select("day, line_id, oee, scrap_rate")
-    .gte("day", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+  // 1. Areas of the plant
+  const { data: areas, error: areaError } = await supabase
+    .from("areas")
+    .select("id, name")
+    .eq("plant_id", plantId)
+    .order("name");
+
+  if (areaError || !areas) return null;
+
+  const areaIds = areas.map((a) => a.id);
+
+  // 2. Area summary KPIs (30d)
+  const { data: areaSummary } = await supabase
+    .from("kpi_area_30d")
+    .select("area_id, avg_oee_30d, avg_scrap_rate_30d")
+    .in("area_id", areaIds);
+
+  const summaryByArea = new Map(
+    areaSummary?.map((a) => [a.area_id, a]) ?? []
+  );
+
+  // 3. Area trend data
+  const { data: areaDaily } = await supabase
+    .from("kpi_area_daily")
+    .select("day, area_id, oee, scrap_rate")
+    .in("area_id", areaIds)
+    .gte("day", dateFrom)
+    .lte("day", dateTo)
     .order("day", { ascending: true });
 
-  if (error || !kpis) {
-    return null;
-  }
-
-  // --- 2. Group by day (for chart)
-  const daily = new Map<string, { oee: number[]; scrap: number[] }>();
-
-  kpis.forEach((k) => {
-    if (!daily.has(k.day)) {
-      daily.set(k.day, { oee: [], scrap: [] });
-    }
-    if (k.oee !== null) daily.get(k.day)!.oee.push(k.oee);
-    if (k.scrap_rate !== null) daily.get(k.day)!.scrap.push(k.scrap_rate);
-  });
-
-  const trend30d = Array.from(daily.entries()).map(([day, v]) => ({
-    day,
-    oee: average(v.oee),
-    scrap: average(v.scrap),
-  }));
-
-  // --- 3. This week aggregation
-  const last7 = trend30d.slice(-7);
-
-  const weekOee = average(last7.map((d) => d.oee));
-  const weekScrap = average(last7.map((d) => d.scrap));
-
-  // --- 4. Per line aggregation
-  const byLine = new Map<
+  const trendByArea = new Map<
     string,
-    { oee: number[]; scrap: number[] }
+    { day: string; oee: number; scrap: number }[]
   >();
 
-  kpis.forEach((k) => {
-    if (!byLine.has(k.line_id)) {
-      byLine.set(k.line_id, { oee: [], scrap: [] });
+  areaDaily?.forEach((d) => {
+    if (!trendByArea.has(d.area_id)) {
+      trendByArea.set(d.area_id, []);
     }
-    if (k.oee !== null) byLine.get(k.line_id)!.oee.push(k.oee);
-    if (k.scrap_rate !== null)
-      byLine.get(k.line_id)!.scrap.push(k.scrap_rate);
+    trendByArea.get(d.area_id)!.push({
+      day: d.day,
+      oee: d.oee ?? 0,
+      scrap: d.scrap_rate ?? 0,
+    });
   });
 
-  const lines = await supabase
-    .from("lines")
-    .select("id, name")
-    .eq("org_id", orgId);
+  // 4. Line ranking KPIs per area
+  const { data: lineRanks } = await supabase
+    .from("kpi_area_line_30d")
+    .select("area_id, line_id, avg_oee_30d, avg_scrap_rate_30d")
+    .in("area_id", areaIds);
 
-    const { data: actions } = await supabase
+  if (!lineRanks) return null;
+
+  // 5. Fetch line master data explicitly (names, codes)
+  const rankedLineIds = [...new Set(lineRanks.map((l) => l.line_id))];
+
+  const { data: lines } = await supabase
+    .from("lines")
+    .select("id, name, line_code")
+    .in("id", rankedLineIds);
+
+  const linesById = new Map(
+    lines?.map((l) => [l.id, l]) ?? []
+  );
+
+  // 6. Open action plans per line
+  const actionLineIds = rankedLineIds;
+
+  const { data: actions } = await supabase
     .from("action_plans")
     .select("line_id")
     .eq("status", "Open")
-    .in(
-      "line_id",
-      lines.data?.map((l) => l.id) ?? []
-    );
-  
+    .in("line_id", actionLineIds);
+
   const actionsByLine = new Map<string, number>();
-  
   actions?.forEach((a) => {
     actionsByLine.set(
       a.line_id,
       (actionsByLine.get(a.line_id) ?? 0) + 1
     );
   });
-  
 
-    const linesRanked =
-    lines.data?.map((l) => ({
-      id: l.id,
-      name: l.name,
-      oee: average(byLine.get(l.id)?.oee ?? []),
-      scrap: average(byLine.get(l.id)?.scrap ?? []),
-      openActions: actionsByLine.get(l.id) ?? 0,
-    })) ?? [];
-  
+  // 7. Assemble final structure
+  const areasFinal = areas.map((area) => {
+    const linesForArea =
+      lineRanks
+        .filter((l) => l.area_id === area.id)
+        .map((l) => {
+          const line = linesById.get(l.line_id);
 
-  // Sort best → worst
-  linesRanked.sort((a, b) => {
-    if (b.oee !== a.oee) return b.oee - a.oee;
-    return a.scrap - b.scrap;
+          return {
+            id: l.line_id,
+            name: line?.name ?? "",
+            lineCode: line?.line_code ?? "",
+            oee: l.avg_oee_30d ?? 0,
+            scrap: l.avg_scrap_rate_30d ?? 0,
+            openActions: actionsByLine.get(l.line_id) ?? 0,
+          };
+        })
+        .sort((a, b) => b.oee - a.oee);
+
+    return {
+      id: area.id,
+      name: area.name,
+      summary: {
+        oee: summaryByArea.get(area.id)?.avg_oee_30d ?? 0,
+        scrap: summaryByArea.get(area.id)?.avg_scrap_rate_30d ?? 0,
+      },
+      trend: trendByArea.get(area.id) ?? [],
+      lines: linesForArea,
+    };
   });
 
   return {
-    weekOee,
-    weekScrap,
-    trend30d,
-    linesRanked,
+    plantId,
+    areas: areasFinal,
   };
-}
-
-function average(values: number[]) {
-  if (!values.length) return 0;
-  return values.reduce((a, b) => a + b, 0) / values.length;
 }

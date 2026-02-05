@@ -6,6 +6,8 @@ import { resolveMasterData } from "@/lib/import/resolveMasterData";
 import { validateMasterRefs } from "@/lib/import/validateMasterRefs";
 import { validateRows } from "@/lib/import/validateRows";
 import { writeRawData } from "@/lib/import/writeRawData";
+import { computeDailyKpis } from "@/lib/kpi/computeDailyKpis";
+
 
 export async function POST(req: Request) {
   try {
@@ -100,21 +102,29 @@ if (!orgId) {
       rows: rowResult.valid
     });
     
+      // 11. Compute daily KPIs for affected (day, line) pairs and finalize import
+const affected = Array.from(
+  new Set(
+    rowResult.valid.Production_Log.map((r) =>
+      JSON.stringify({
+        day: r.date,
+        line_id: lineMap.get(r.line_code),
+      })
+    )
+  )
+).map((x) => JSON.parse(x));
 
-    // 11. Temporary success (inserts come next step)
-    return NextResponse.json({
-      success: true,
-      message: "Raw data inserted successfully"
-    });
-    
+await computeDailyKpis(affected);
 
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || "Excel import failed"
-      },
-      { status: 500 }
-    );
-  }
+return NextResponse.json({
+  success: true,
+  message: "Import + KPI computation completed",
+});
+} catch (err) {
+  return NextResponse.json(
+    { success: false, error: String(err) },
+    { status: 500 }
+  );
+}
+
 }

@@ -13,6 +13,7 @@ export function OrgNavbar() {
     { label: "OEE", href: `/${orgId}/oee` },
     { label: "Scrap", href: `/${orgId}/scrap` },
     { label: "Action Plan", href: `/${orgId}/action-plan/oee` },
+    { label: "AI Shift Analysis", href: `/${orgId}/ai/shift-analysis`},
     { label: "Insert Data", href: `/${orgId}/ingest` },
   ];
 

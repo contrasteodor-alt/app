@@ -22,8 +22,9 @@ export async function getActionPlansByType(
     `)
     .eq("org_id", orgId)
     .or(
-      `source.eq.${type},expected_impact.ilike.%${keyword}%`
+      `source.eq.${type},source.eq.ai,expected_impact.ilike.%${keyword}%`
     )
+    
     .order("due_date", { ascending: true });
 
   if (error) throw error;

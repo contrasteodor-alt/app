@@ -1,20 +1,19 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
+import { AreaTrendChart } from "@/components/area-trend-chart";
 
 import { getOrganization } from "@/lib/data/organizations";
-import { getLinesForOrg } from "@/lib/data/lines";
-import { getLatestKpisForOrg } from "@/lib/data/kpis";
+import { getOrgOverviewData } from "@/lib/data/org-overview";
+import { getPlantsForOrg } from "@/lib/data/organizations";
 
 const { createSupabaseServerClient } = await import(
   "@/lib/supabase/server"
@@ -32,62 +31,105 @@ export default async function OrgOverviewPage({
   const supabase = await createSupabaseServerClient();
 
   const org = await getOrganization(orgId);
-  if (!org) {
-    notFound();
-  }
+  if (!org) notFound();
 
-  const lines = await getLinesForOrg(supabase, orgId);
-  const kpis = await getLatestKpisForOrg(supabase, orgId);
+  // --- Plant (single plant for now)
+  const plants = await getPlantsForOrg(supabase, orgId);
+  const plant = plants?.[0];
+  if (!plant) notFound();
 
-  // merge lines with latest KPIs
-  const linesWithKpis = lines.map((line) => {
-    const kpi = kpis.find((k) => k.line_id === line.id);
+  // --- Date range (last 30 days)
+  const dateTo = new Date().toISOString().slice(0, 10);
+  const dateFrom = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000
+  )
+    .toISOString()
+    .slice(0, 10);
 
-    return {
-      id: line.id,
-      name: line.name,
-      oee: kpi?.oee ?? null,
-      scrap_rate: kpi?.scrap_rate ?? null,
-    };
-  });
+  const overview = await getOrgOverviewData(
+    supabase,
+    orgId,
+    plant.id,
+    dateFrom,
+    dateTo
+  );
+
+  if (!overview) notFound();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-8 p-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">
           {org.name}
         </h1>
         <p className="text-muted-foreground">
-          Production lines overview
+          Plant overview — {plant.name}
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {linesWithKpis.map((line) => (
-          <Card key={line.id}>
+      {/* Areas */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        {overview.areas.map((area) => (
+          <Card key={area.id}>
             <CardHeader>
-              <CardTitle>{line.name}</CardTitle>
-              <CardDescription>
-                OEE:{" "}
-                {line.oee !== null
-                  ? `${(line.oee * 100).toFixed(1)}%`
-                  : "n/a"}
-              </CardDescription>
+              <CardTitle className="flex items-center justify-between">
+                <span>{area.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  OEE {(area.summary.oee * 100).toFixed(1)}% · Scrap{" "}
+                  {(area.summary.scrap * 100).toFixed(2)}%
+                </span>
+              </CardTitle>
             </CardHeader>
 
-            <CardContent className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Scrap:{" "}
-                {line.scrap_rate !== null
-                  ? `${(line.scrap_rate * 100).toFixed(2)}%`
-                  : "n/a"}
-              </div>
+            <CardContent className="space-y-6">
+              {/* Area trend graph */}
+              <div className="text-xs text-muted-foreground">
+  Last 30 days
+</div>
+              <AreaTrendChart data={area.trend} />
 
-              <Button asChild variant="secondary">
-                <Link href={`/${orgId}/lines/${line.id}`}>
-                  View line
-                </Link>
-              </Button>
+              {/* Lines ranking */}
+              <div className="space-y-2">
+              {area.lines.map((line, idx) => {
+                const isWorst = idx === area.lines.length - 1;
+
+                return (
+                 <div
+                  key={line.id}
+                      className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+                       isWorst ? "bg-red-50 border-red-200" : ""
+                      }`}
+                         >
+
+                    <div className="font-semibold text-sm text-foreground">
+                    {line.name || line.lineCode || "Unnamed line"}
+                      </div>
+
+                    <div className="flex gap-4 text-muted-foreground">
+                      <span>
+                        OEE {(line.oee * 100).toFixed(1)}%
+                      </span>
+                      <span>
+                        Scrap {(line.scrap * 100).toFixed(2)}%
+                      </span>
+                      <span
+  className={`px-2 py-0.5 rounded text-xs font-medium ${
+    line.openActions === 0
+      ? "bg-green-100 text-green-700"
+      : line.openActions < 3
+      ? "bg-yellow-100 text-yellow-800"
+      : "bg-red-100 text-red-700"
+  }`}
+>
+  Actions {line.openActions}
+</span>
+
+                    </div>
+                  </div>
+                );
+              })}
+              </div>
             </CardContent>
           </Card>
         ))}
