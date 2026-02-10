@@ -38,8 +38,18 @@ export function ActionTable({
                 {a.status}
               </td>
               <td className="px-4 py-3">
-                {a.source === "ai" ? "AI" : "Manual"}
-              </td>
+  <span
+    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+      ${
+        a.source === "ai"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-slate-100 text-slate-700"
+      }`}
+  >
+    {a.source === "ai" ? "🤖 AI" : "👤 Manual"}
+  </span>
+</td>
+
             </tr>
           ))}
         </tbody>

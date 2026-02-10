@@ -18,13 +18,17 @@ export default async function ScrapActionPlanPage({
   );
 
   const { data: lines } = await supabase
-    .from("lines")
-    .select("id, name")
-    .eq("org_id", params.orgId);
+  .from("lines")
+  .select("id, name, line_code")
+  .eq("org_id", params.orgId);
 
-  const lineMap = new Map(
-    lines?.map((l) => [l.id, l.name])
-  );
+const lineMap = new Map(
+  lines?.map((l) => [
+    l.id,
+    `${l.name}${l.line_code ? ` (${l.line_code})` : ""}`,
+  ])
+);
+
 
   return (
     <div className="space-y-6">

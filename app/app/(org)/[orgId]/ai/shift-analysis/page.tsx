@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { getOrganization } from "@/lib/data/organizations";
 import { getAIShiftAnalysisData } from "@/lib/data/ai-shift-analysis";
+import { AiShiftRow } from "@/components/ai/ai-shift-row";
+
 
 type PageProps = {
   params: { orgId: string };
@@ -92,57 +94,44 @@ export default async function AIShiftAnalysisPage({
       </div>
 
       {/* Content */}
-      {byArea.size === 0 ? (
-        <div className="text-muted-foreground">
-          No pending AI suggestions for this plant.
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {Array.from(byArea.entries()).map(([areaId, items]) => (
-            <Card key={areaId}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{items[0].areaName}</span>
-                  <Badge variant="secondary">
-                    {items.length} suggestion{items.length > 1 ? "s" : ""}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
+{byArea.size === 0 ? (
+  <div className="text-muted-foreground">
+    No pending AI suggestions for this plant.
+  </div>
+) : (
+  <div className="space-y-10">
+    {Array.from(byArea.entries()).map(([areaId, items]) => (
+      <Card key={areaId}>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>{items[0].areaName}</span>
+            <Badge variant="secondary">
+              {items.length} suggestion{items.length > 1 ? "s" : ""}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
 
-              <CardContent className="space-y-4">
-                {items.map((s) => (
-                  <div
-                    key={s.suggestionId}
-                    className="flex items-center justify-between rounded-md border px-4 py-3"
-                  >
-                    <div className="space-y-1">
-                      <div className="font-medium">
-                        {s.lineName} ({s.lineCode})
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {s.eventType.toUpperCase()} ·{" "}
-                        {s.failureModeKey.replaceAll("|", " / ")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Events: {s.eventCount} · Impact: {s.totalImpact}
-                      </div>
-                    </div>
+        <CardContent className="space-y-4">
+        {items.map((s) => (
+  <AiShiftRow
+    key={s.suggestionId}
+    orgId={params.orgId}
+    suggestionId={s.suggestionId}
+    lineLabel={`${s.lineName} (${s.lineCode})`}
+    eventType={s.eventType}
+    failureMode={s.failureModeKey.replaceAll("|", " / ")}
+    eventCount={s.eventCount}
+    impact={s.totalImpact}
+    suggestedActionType={s.suggestedActionType}
+  />
+))}
 
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge>
-                        {s.suggestedActionType.replace("_", " ")}
-                      </Badge>
-                      <Badge variant="outline">
-                        {s.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+)}
+
     </div>
   );
 }

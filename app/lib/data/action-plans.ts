@@ -5,27 +5,27 @@ export async function getActionPlansByType(
   orgId: string,
   type: "oee" | "scrap"
 ) {
-  const keyword = type === "oee" ? "oee" : "scrap";
+  const prefix = type === "scrap" ? "scrap%" : "downtime%";
 
-  const { data, error } = await supabase
-    .from("action_plans")
-    .select(`
-      id,
-      action,
-      root_cause,
-      owner,
-      due_date,
-      status,
-      source,
-      expected_impact,
-      line_id
-    `)
-    .eq("org_id", orgId)
-    .or(
-      `source.eq.${type},source.eq.ai,expected_impact.ilike.%${keyword}%`
-    )
-    
-    .order("due_date", { ascending: true });
+const { data, error } = await supabase
+  .from("action_plans")
+  .select(`
+    id,
+    action,
+    root_cause,
+    owner,
+    due_date,
+    status,
+    source,
+    expected_impact,
+    line_id,
+    failure_mode_key
+  `)
+  .eq("org_id", orgId)
+  .eq("source", "ai")
+  .ilike("failure_mode_key", prefix)
+  .order("created_at", { ascending: false });
+
 
   if (error) throw error;
 

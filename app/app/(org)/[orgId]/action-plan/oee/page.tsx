@@ -24,12 +24,16 @@ export default async function OeeActionPlanPage({
 
   const { data: lines } = await supabase
   .from("lines")
-  .select("id, name")
+  .select("id, name, line_code")
   .eq("org_id", params.orgId);
 
 const lineMap = new Map(
-  lines?.map((l) => [l.id, l.name])
+  lines?.map((l) => [
+    l.id,
+    `${l.name}${l.line_code ? ` (${l.line_code})` : ""}`,
+  ])
 );
+
 
 
 return (
@@ -48,7 +52,7 @@ return (
     </div>
 
     <h1 className="text-3xl font-semibold tracking-tight">
-      Scrap Action Plan
+      OEE Action Plan
     </h1>
 
     <ActionTable actions={actions} lineMap={lineMap} />

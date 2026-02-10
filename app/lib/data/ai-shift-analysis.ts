@@ -32,107 +32,127 @@ export async function getAIShiftAnalysisData(
   orgId: string,
   plantId: string
 ): Promise<AIShiftSuggestion[]> {
-  const { data, error } = await supabase
-    .from("ai_action_suggestions")
-    .select(`
-      id,
-      status,
-      suggested_action_type,
-      ai_event_clusters!ai_action_suggestions_cluster_fk (
-        id,
-        event_type,
-        failure_mode_key,
-        event_count,
-        total_impact,
-        window_start,
-        window_end,
-        plant_id,
-        area_id,
-        line_id,
-        lines (
-          id,
-          name,
-          line_code,
-          areas (
-            id,
-            name,
-            plants (
-              id,
-              name,
-              org_id
-            )
-          )
-        )
-      )
-    `)
-    .eq("status", "pending");
-    if (error) {
-      console.error("AI SHIFT ANALYSIS ERROR:", error);
-    }
-    
-  if (error || !data) {
-    throw new Error("Failed to load AI shift analysis data");
-  }
+ /* -------------------------------------------------
+   1. Load AI EVENT CLUSTERS (context owner)
+------------------------------------------------- */
+const { data: clusters, error } = await supabase
+.from("ai_event_clusters")
+.select(`
+  id,
+  org_id,
+  plant_id,
+  area_id,
+  line_id,
+  event_type,
+  failure_mode_key,
+  event_count,
+  total_impact,
+  window_start,
+  window_end
+`)
+.eq("org_id", orgId)
+.eq("plant_id", plantId);
 
-  const rows: AIShiftSuggestion[] = [];
-
-  for (const s of data) {
-    const clusters = s.ai_event_clusters;
-
-if (!Array.isArray(clusters) || clusters.length === 0) {
-  continue; // no resolvable cluster
+if (error) {
+console.error("AI EVENT CLUSTERS LOAD ERROR:", error);
+throw new Error("Failed to load AI event clusters");
 }
 
-const c = clusters[0];
+console.log("AI SHIFT CLUSTERS:", clusters?.length ?? 0);
+console.log("AI SHIFT orgId:", orgId);
+console.log("AI SHIFT plantId:", plantId);
 
 
-    const lines = c.lines;
-    if (!Array.isArray(lines) || lines.length === 0) {
-   continue; // orphan cluster, skip
-   }
-
-    const line = lines[0];
+if (!clusters || clusters.length === 0) {
+return [];
+}
 
 
-    const areas = line.areas;
-    if (!areas || areas.length === 0) continue;
+  /* -------------------------------------------------
+     2. Load MASTER DATA (no joins, no RLS cascade)
+  ------------------------------------------------- */
+  const { data: lines } = await supabase
+    .from("lines")
+    .select("id, name, line_code, area_id");
 
-    const area = areas[0];
+  const { data: areas } = await supabase
+    .from("areas")
+    .select("id, name, plant_id");
 
-    const plants = area.plants;
-    if (!plants || plants.length === 0) continue;
+  const { data: plants } = await supabase
+    .from("plants")
+    .select("id, name");
 
-    const plant = plants[0];
+  const lineById = new Map(lines?.map(l => [l.id, l]));
+  const areaById = new Map(areas?.map(a => [a.id, a]));
+  const plantById = new Map(plants?.map(p => [p.id, p]));
 
-    if (plant.org_id !== orgId) continue;
-    if (plant.id !== plantId) continue;
+  /* -------------------------------------------------
+     3. Load AI ACTION SUGGESTIONS (pending only)
+  ------------------------------------------------- */
+  const clusterIds = clusters.map(c => c.id);
 
-    rows.push({
-      suggestionId: s.id,
-      clusterId: c.id,
+  const { data: suggestions } = await supabase
+    .from("ai_action_suggestions")
+    .select("id, cluster_id, status, suggested_action_type")
+    .in("cluster_id", clusterIds)
+    .eq("status", "pending");
 
-      plantId: plant.id,
-      plantName: plant.name,
+  const suggestionsByCluster = new Map<string, typeof suggestions>();
 
-      areaId: area.id,
-      areaName: area.name,
+  for (const s of suggestions ?? []) {
+    if (!suggestionsByCluster.has(s.cluster_id)) {
+      suggestionsByCluster.set(s.cluster_id, []);
+    }
+    suggestionsByCluster.get(s.cluster_id)!.push(s);
+  }
 
-      lineId: line.id,
-      lineName: line.name,
-      lineCode: line.line_code,
+  /* -------------------------------------------------
+     4. Compose FINAL ROWS
+  ------------------------------------------------- */
+  const rows: AIShiftSuggestion[] = [];
 
-      eventType: c.event_type,
-      failureModeKey: c.failure_mode_key,
+  for (const c of clusters) {
+    const line = lineById.get(c.line_id);
+    if (!line) continue;
 
-      eventCount: c.event_count,
-      totalImpact: c.total_impact,
+    const area = areaById.get(c.area_id);
+    if (!area) continue;
 
-      windowStart: c.window_start,
-      windowEnd: c.window_end,
+    const plant = plantById.get(c.plant_id);
+    if (!plant) continue;
 
-      suggestedActionType: s.suggested_action_type,
-      status: s.status,
-    });
+    const clusterSuggestions = suggestionsByCluster.get(c.id) ?? [];
+    if (clusterSuggestions.length === 0) continue;
+
+    for (const s of clusterSuggestions) {
+      rows.push({
+        suggestionId: s.id,
+        clusterId: c.id,
+
+        plantId: plant.id,
+        plantName: plant.name,
+
+        areaId: area.id,
+        areaName: area.name,
+
+        lineId: line.id,
+        lineName: line.name,
+        lineCode: line.line_code,
+
+        eventType: c.event_type,
+        failureModeKey: c.failure_mode_key,
+
+        eventCount: c.event_count,
+        totalImpact: c.total_impact,
+
+        windowStart: c.window_start,
+        windowEnd: c.window_end,
+
+        suggestedActionType: s.suggested_action_type,
+        status: s.status,
+      });
+    }
   }
 
   return rows;
