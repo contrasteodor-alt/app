@@ -10,7 +10,12 @@ type AISuggestion = {
   evidenceEventIds?: string[];
 };
 
-export default function AIClientPage() {
+export default function AIClientPage({
+  params,
+}: {
+  params: { orgId: string };
+})
+ {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<AISuggestion[]>([]);
@@ -41,7 +46,7 @@ export default function AIClientPage() {
 
   async function createActionFromAI(item: AISuggestion) {
     const payload = {
-      orgId: "demo-org",
+      orgId: params.orgId,
       lineId: "line-1",
 
       action: item.action,

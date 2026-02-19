@@ -58,9 +58,9 @@ console.error("AI EVENT CLUSTERS LOAD ERROR:", error);
 throw new Error("Failed to load AI event clusters");
 }
 
-console.log("AI SHIFT CLUSTERS:", clusters?.length ?? 0);
-console.log("AI SHIFT orgId:", orgId);
-console.log("AI SHIFT plantId:", plantId);
+//console.log("AI SHIFT CLUSTERS:", clusters?.length ?? 0);
+//console.log("AI SHIFT orgId:", orgId);
+//console.log("AI SHIFT plantId:", plantId);
 
 
 if (!clusters || clusters.length === 0) {
